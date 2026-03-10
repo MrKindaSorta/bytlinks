@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Camera, Users, Pencil, Plus, Eye, EyeOff, Star, Trash2, GripVertical, Smartphone, Monitor, ChevronDown, ChevronRight, Palette } from 'lucide-react';
+import { Camera, Users, Pencil, Plus, Eye, EyeOff, Star, Trash2, GripVertical, Smartphone, Monitor, ChevronDown, ChevronRight, Palette, Layers } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type {
@@ -23,6 +23,7 @@ import type {
   SocialLink,
   ContentBlock,
   ContentBlockType,
+  ContentSection,
   Theme,
 } from '@bytlinks/shared';
 import { BLOCK_TYPE_META, FULL_WIDTH_BLOCKS, resolveBlockColumnSpan } from '@bytlinks/shared/constants';
@@ -44,6 +45,7 @@ import { blockEditorRegistry } from '../builder/blocks/blockEditorRegistry';
 import {
   resolveButtonStyle,
   resolveLayoutVariant,
+  resolveContentDisplay,
   resolveDesktopLayoutVariant,
   resolveDesktopContentDisplay,
   resolveTwoColumnDesktop,
@@ -59,6 +61,7 @@ import { BlockPalette } from '../builder/BlockPalette';
 import { SocialPicker } from '../builder/SocialPicker';
 import { ProfileEditor } from '../builder/ProfileEditor';
 import { LinkList } from '../builder/LinkList';
+import { SectionGroupEditor } from '../builder/SectionGroupEditor';
 import { ImageCropEditor, CROP_SQUARE } from '../shared/ImageCropEditor';
 import { AppearanceDrawer } from './AppearanceDrawer';
 import { MobileActionBar } from './MobileActionBar';
@@ -82,7 +85,7 @@ export function MyBytLink() {
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerContent, setDrawerContent] = useState<'block' | 'link' | 'social' | 'profile' | 'links' | null>(null);
+  const [drawerContent, setDrawerContent] = useState<'block' | 'link' | 'social' | 'profile' | 'links' | 'sections' | null>(null);
   const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null);
   const [editingLink, setEditingLink] = useState<LinkType | null>(null);
 
@@ -188,6 +191,10 @@ export function MyBytLink() {
 
   const sectionOrder = p.section_order ?? ['social_links', 'links'];
   const blockMap = new Map(blocks.map((b) => [b.id, b]));
+
+  // Detect sections/cards content display mode
+  const contentDisplay = resolveContentDisplay(theme);
+  const isSectioned = contentDisplay === 'sections' || contentDisplay === 'cards';
 
   // Filter to valid entries for DnD
   // In split edit mode, social_links is rendered in the hero sidebar
@@ -347,6 +354,12 @@ export function MyBytLink() {
 
   function openLinksManager() {
     setDrawerContent('links');
+    setDrawerOpen(true);
+    clearSelection();
+  }
+
+  function openSectionsManager() {
+    setDrawerContent('sections');
     setDrawerOpen(true);
     clearSelection();
   }
@@ -1088,20 +1101,36 @@ export function MyBytLink() {
           </span>
         )}
 
-        {/* Right: Customize button (edit mode) or Device toggle (preview mode) */}
+        {/* Right: Sections + Customize buttons (edit mode) or Device toggle (preview mode) */}
         {!previewMode && (
-          <button
-            onClick={() => setAppearanceOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider
-                       transition-all duration-200 hover:scale-[1.02]"
-            style={{
-              background: 'var(--page-surface-alt, rgba(128,128,128,0.08))',
-              color: 'var(--page-accent, #0d9488)',
-            }}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Customize</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {isSectioned && (
+              <button
+                onClick={openSectionsManager}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider
+                           transition-all duration-200 hover:scale-[1.02]"
+                style={{
+                  background: 'var(--page-surface-alt, rgba(128,128,128,0.08))',
+                  color: 'var(--page-accent, #0d9488)',
+                }}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sections</span>
+              </button>
+            )}
+            <button
+              onClick={() => setAppearanceOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider
+                         transition-all duration-200 hover:scale-[1.02]"
+              style={{
+                background: 'var(--page-surface-alt, rgba(128,128,128,0.08))',
+                color: 'var(--page-accent, #0d9488)',
+              }}
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Customize</span>
+            </button>
+          </div>
         )}
         {previewMode && (
           <div
@@ -1208,7 +1237,9 @@ export function MyBytLink() {
                   ? 'Edit Profile'
                   : drawerContent === 'links'
                     ? 'Manage Links'
-                    : 'Editor'
+                    : drawerContent === 'sections'
+                      ? 'Manage Sections'
+                      : 'Editor'
         }
       >
         {drawerContent === 'block' && editingBlock && (
@@ -1226,6 +1257,39 @@ export function MyBytLink() {
         {drawerContent === 'links' && (
           <LinkList />
         )}
+        {drawerContent === 'sections' && (() => {
+          const sectionsConfig = theme.sectionsConfig;
+          const visibleOrder = sectionOrder.filter((entry) => {
+            if (entry === 'social_links') return false;
+            if (!entry.startsWith('block:')) return true;
+            return blockMap.has(entry.slice(6));
+          });
+          const currentSections: ContentSection[] = sectionsConfig?.sections ?? [{
+            id: 'main',
+            label: 'Main',
+            items: visibleOrder,
+          }];
+
+          return (
+            <SectionGroupEditor
+              sections={currentSections}
+              sectionOrder={visibleOrder}
+              blocks={blocks}
+              onUpdateSections={(newSections) => {
+                updatePage({
+                  theme: {
+                    ...theme,
+                    sectionsConfig: {
+                      mode: sectionsConfig?.mode ?? 'anchor',
+                      navPosition: sectionsConfig?.navPosition ?? 'top',
+                      sections: newSections,
+                    },
+                  },
+                });
+              }}
+            />
+          );
+        })()}
       </EditorDrawer>
 
       {/* Appearance Drawer */}

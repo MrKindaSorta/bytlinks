@@ -2,91 +2,19 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate } from 'react-router-dom';
-import { Link2, Palette, BarChart3, Settings, ExternalLink, Plus, LayoutDashboard } from 'lucide-react';
-import { ProfileEditor } from '../components/builder/ProfileEditor';
+import { BarChart3, Settings, ExternalLink, LayoutDashboard } from 'lucide-react';
 import logoSrc from '../logo/BytLinks.png';
-import { SortableSectionList } from '../components/builder/SortableSectionList';
-import { SocialPicker } from '../components/builder/SocialPicker';
-import { BlockPalette } from '../components/builder/BlockPalette';
-import { AppearanceEditor } from '../components/builder/AppearanceEditor';
-import { PreviewFrame } from '../components/builder/PreviewFrame';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
 import { SettingsPanel } from '../components/settings/SettingsPanel';
 import { MyBytLink } from '../components/editor/MyBytLink';
 
-type DashboardTab = 'mybytlink' | 'links' | 'appearance' | 'analytics' | 'settings';
+type DashboardTab = 'mybytlink' | 'analytics' | 'settings';
 
 const TAB_ICONS = {
   mybytlink: LayoutDashboard,
-  links: Link2,
-  appearance: Palette,
   analytics: BarChart3,
   settings: Settings,
 } as const;
-
-function LinksTabContent() {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  return (
-    <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
-      {/* Editor column */}
-      <div className="min-w-0 space-y-5">
-        <section>
-          <h2 className="font-display text-base font-700 tracking-tight text-brand-text mb-3">
-            Profile
-          </h2>
-          <ProfileEditor />
-        </section>
-
-        <section>
-          <h2 className="font-display text-base font-700 tracking-tight text-brand-text mb-3">
-            Social Links
-          </h2>
-          <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
-            <SocialPicker />
-          </div>
-        </section>
-
-        <SortableSectionList />
-
-        {/* Add Block button — popover on desktop, sheet on mobile */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              if (window.innerWidth >= 1024) {
-                setPopoverOpen((v) => !v);
-              } else {
-                setSheetOpen(true);
-              }
-            }}
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-brand-border
-                       font-body text-sm font-medium text-brand-text-secondary hover:text-brand-text hover:border-brand-text-secondary
-                       transition-colors duration-150"
-          >
-            <Plus className="w-4 h-4" />
-            Add Block
-          </button>
-
-          {/* Desktop popover — BlockPalette handles its own exit animation */}
-          {popoverOpen && (
-            <BlockPalette variant="popover" onClose={() => setPopoverOpen(false)} />
-          )}
-        </div>
-
-        {/* Mobile block palette sheet */}
-        {sheetOpen && (
-          <BlockPalette variant="sheet" onClose={() => setSheetOpen(false)} />
-        )}
-      </div>
-
-      {/* Live preview column — desktop only, 50/50 split */}
-      <div className="hidden lg:block lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-140px)]">
-        <PreviewFrame />
-      </div>
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('mybytlink');
@@ -101,8 +29,6 @@ export default function Dashboard() {
 
   const tabs: { key: DashboardTab; label: string; mobileLabel?: string }[] = [
     { key: 'mybytlink', label: 'My BytLink', mobileLabel: 'My Page' },
-    { key: 'links', label: 'Links & Info', mobileLabel: 'Links' },
-    { key: 'appearance', label: 'Appearance', mobileLabel: 'Style' },
     { key: 'analytics', label: 'Analytics' },
     { key: 'settings', label: 'Settings' },
   ];
@@ -175,27 +101,16 @@ export default function Dashboard() {
             <MyBytLink />
           </main>
         ) : (
-          <main className={`${activeTab === 'appearance' ? 'px-3 py-6 lg:px-4 lg:py-6' : 'px-6 py-8 lg:px-10 lg:py-10'} pb-20 lg:pb-10 overflow-y-auto`}>
-            <div className={activeTab === 'appearance' ? '' : activeTab === 'links' ? '' : activeTab === 'analytics' ? '' : 'max-w-3xl'}>
+          <main className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10 overflow-y-auto">
+            <div className={activeTab === 'analytics' ? '' : 'max-w-3xl'}>
               <h1 className="font-display text-2xl font-800 tracking-tight text-brand-text mb-1">
-                {activeTab === 'links' && 'Links & Info'}
-                {activeTab === 'appearance' && 'Appearance'}
                 {activeTab === 'analytics' && 'Analytics'}
                 {activeTab === 'settings' && 'Settings'}
               </h1>
-              <p className={`font-body text-sm text-brand-text-secondary ${activeTab === 'links' ? 'mb-5' : 'mb-8'}`}>
-                {activeTab === 'links' && 'Manage your profile, links, and about section.'}
-                {activeTab === 'appearance' && 'Customize how your page looks.'}
+              <p className="font-body text-sm text-brand-text-secondary mb-8">
                 {activeTab === 'analytics' && 'See how your page is performing.'}
                 {activeTab === 'settings' && 'Manage your account and page settings.'}
               </p>
-
-              {/* Tab content */}
-              {activeTab === 'links' && (
-                <LinksTabContent />
-              )}
-
-              {activeTab === 'appearance' && <AppearanceEditor />}
 
               {activeTab === 'analytics' && <AnalyticsDashboard />}
 
