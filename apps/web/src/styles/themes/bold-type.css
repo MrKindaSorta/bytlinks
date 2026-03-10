@@ -1,0 +1,20 @@
+/*
+ * BOLD TYPE — Typography-first, text is the hero, editorial confidence
+ * Typography: Oversized display font, strong hierarchy
+ */
+[data-theme="bold-type"] {
+  --page-bg: #fafaf9;
+  --page-surface: #ffffff;
+  --page-surface-alt: #f5f5f4;
+  --page-border: #d6d3d1;
+  --page-text: #0c0a09;
+  --page-text-secondary: #57534e;
+  --page-text-muted: #a8a29e;
+  --page-accent: #0c0a09;
+  --page-accent-hover: #292524;
+  --page-btn-bg: #0c0a09;
+  --page-btn-text: #fafaf9;
+  --page-btn-border: transparent;
+  --page-font-display: 'Playfair Display', serif;
+  --page-font-body: 'Source Sans 3', sans-serif;
+}

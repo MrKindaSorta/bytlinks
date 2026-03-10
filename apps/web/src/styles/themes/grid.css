@@ -1,0 +1,27 @@
+/*
+ * GRID — Visible grid structure, geometric. Designer/architect feel.
+ * Typography: Geometric sans
+ */
+[data-theme="grid"] {
+  --page-bg: #f8f8f8;
+  --page-surface: #ffffff;
+  --page-surface-alt: #f0f0f0;
+  --page-border: #d0d0d0;
+  --page-text: #1a1a1a;
+  --page-text-secondary: #666666;
+  --page-text-muted: #999999;
+  --page-accent: #1a1a1a;
+  --page-accent-hover: #404040;
+  --page-btn-bg: #1a1a1a;
+  --page-btn-text: #f8f8f8;
+  --page-btn-border: transparent;
+  --page-font-display: 'Outfit', sans-serif;
+  --page-font-body: 'Outfit', sans-serif;
+}
+
+[data-theme="grid"] {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

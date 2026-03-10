@@ -1,0 +1,234 @@
+/*
+ * BytLinks Animation System
+ *
+ * One entrance animation per page load. Each animation should feel distinct
+ * and dramatic enough that users can clearly see the difference when switching.
+ * Speed controlled by --entrance-duration and --entrance-stagger variables
+ * set via themeApplicator based on the user's animationSpeed choice.
+ */
+
+/* ── Custom easing curves ── */
+/* Smooth deceleration with slight overshoot for organic feel */
+:root {
+  --ease-entrance: cubic-bezier(0.22, 1.2, 0.36, 1);
+  --ease-entrance-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-entrance-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Entrance: Fade ── */
+/* Clean dissolve from invisible — pairs opacity with a subtle rise for depth */
+@keyframes entrance-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Entrance: Slide Up ── */
+/* Bold upward sweep — content rises into place from well below */
+@keyframes entrance-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Entrance: Slide Down ── */
+/* Drops in from above with weight */
+@keyframes entrance-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Entrance: Scale ── */
+/* Starts noticeably small and blooms outward with a springy overshoot */
+@keyframes entrance-scale {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Entrance: Blur In ── */
+/* Dreamy focus pull — heavy blur clears while content fades and rises */
+@keyframes entrance-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(20px);
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+/* ── Entrance: Cascade (slide-up variant with stagger) ── */
+/* Each child slides up independently — more travel than regular slide-up */
+@keyframes entrance-cascade {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* ── Animation Classes (applied to page shell) ── */
+/* Duration driven by --entrance-duration (set by themeApplicator) */
+
+.animate-entrance-fade > * {
+  animation: entrance-fade var(--entrance-duration, 800ms) var(--ease-entrance-soft) both;
+}
+
+.animate-entrance-slide-up > * {
+  animation: entrance-slide-up var(--entrance-duration, 800ms) var(--ease-entrance) both;
+}
+
+.animate-entrance-slide-down > * {
+  animation: entrance-slide-down var(--entrance-duration, 800ms) var(--ease-entrance) both;
+}
+
+.animate-entrance-scale > * {
+  animation: entrance-scale var(--entrance-duration, 800ms) var(--ease-entrance-bounce) both;
+}
+
+.animate-entrance-blur-in > * {
+  animation: entrance-blur-in var(--entrance-duration, 800ms) var(--ease-entrance-soft) both;
+}
+
+/* ── Cascade: stagger each child ── */
+/* Stagger delays driven by --entrance-stagger (set by themeApplicator) */
+.animate-entrance-cascade > *:nth-child(1)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 0); }
+.animate-entrance-cascade > *:nth-child(2)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 1); }
+.animate-entrance-cascade > *:nth-child(3)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 2); }
+.animate-entrance-cascade > *:nth-child(4)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 3); }
+.animate-entrance-cascade > *:nth-child(5)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 4); }
+.animate-entrance-cascade > *:nth-child(6)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 5); }
+.animate-entrance-cascade > *:nth-child(7)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 6); }
+.animate-entrance-cascade > *:nth-child(8)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 7); }
+.animate-entrance-cascade > *:nth-child(9)  { animation-delay: calc(var(--entrance-stagger, 100ms) * 8); }
+.animate-entrance-cascade > *:nth-child(10) { animation-delay: calc(var(--entrance-stagger, 100ms) * 9); }
+
+.animate-entrance-cascade > * {
+  animation: entrance-cascade var(--entrance-duration, 800ms) var(--ease-entrance) both;
+}
+
+/* ── Scroll-triggered (desktop only, toggled via IntersectionObserver) ── */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--duration-base) var(--ease-entrance-soft),
+              transform var(--duration-base) var(--ease-entrance-soft);
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* In preview context, show all scroll-reveal elements immediately */
+[data-preview] .scroll-reveal {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Analytics refresh button animations ── */
+
+/* Smooth continuous spin for the refresh icon */
+@keyframes analytics-icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.analytics-icon-spin {
+  animation: analytics-icon-spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Checkmark springy pop-in */
+@keyframes analytics-icon-done {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.analytics-icon-done {
+  animation: analytics-icon-done 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Slow orbit for the conic-gradient ring */
+@keyframes analytics-ring-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.analytics-ring-spin {
+  animation: analytics-ring-rotate 1.8s linear infinite;
+}
+
+/* Completed ring — holds briefly, then fades */
+@keyframes analytics-ring-done {
+  0% { opacity: 1; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.analytics-ring-done {
+  animation: analytics-ring-done 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Character-by-character type-in for labels */
+@keyframes analytics-char-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.analytics-char-in {
+  opacity: 0;
+  display: inline-block;
+  animation: analytics-char-in 0.18s ease-out forwards;
+  white-space: pre;
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

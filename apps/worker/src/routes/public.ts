@@ -1,0 +1,197 @@
+import { Hono } from 'hono';
+import type { Env } from '../index';
+
+export const publicRoutes = new Hono<{ Bindings: Env }>();
+
+/**
+ * GET /api/public/avatar/:key+ — serve avatar from R2
+ */
+publicRoutes.get('/avatar/*', async (c) => {
+  const key = c.req.path.replace('/api/public/avatar/', '');
+
+  try {
+    const object = await c.env.STORAGE.get(key);
+    if (!object) {
+      return c.json({ success: false, error: 'Not found' }, 404);
+    }
+
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'image/jpeg');
+    headers.set('Cache-Control', 'public, max-age=86400');
+
+    return new Response(object.body, { headers });
+  } catch {
+    return c.json({ success: false, error: 'Failed to load image' }, 500);
+  }
+});
+
+/**
+ * GET /api/public/file/:key+ — serve file from R2 (blocks uploads)
+ */
+publicRoutes.get('/file/*', async (c) => {
+  const key = c.req.path.replace('/api/public/file/', '');
+
+  try {
+    const object = await c.env.STORAGE.get(key);
+    if (!object) {
+      return c.json({ success: false, error: 'Not found' }, 404);
+    }
+
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+    headers.set('Cache-Control', 'public, max-age=86400');
+
+    return new Response(object.body, { headers });
+  } catch {
+    return c.json({ success: false, error: 'Failed to load file' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/poll/:blockId/vote — cast a poll vote (cookie-gated)
+ */
+publicRoutes.post('/poll/:blockId/vote', async (c) => {
+  const blockId = c.req.param('blockId');
+  const body = await c.req.json<{ option_id: string }>();
+
+  if (!body.option_id) {
+    return c.json({ success: false, error: 'option_id is required' }, 400);
+  }
+
+  // Check cookie for prior vote
+  const cookieName = `poll_${blockId}`;
+  const cookies = c.req.header('cookie') || '';
+  if (cookies.includes(cookieName)) {
+    return c.json({ success: false, error: 'Already voted' }, 409);
+  }
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'poll').first<{ id: string; data: string }>();
+
+    if (!block) {
+      return c.json({ success: false, error: 'Poll not found' }, 404);
+    }
+
+    const pollData = JSON.parse(block.data);
+    if (pollData.closed) {
+      return c.json({ success: false, error: 'Poll is closed' }, 403);
+    }
+
+    const option = pollData.options.find((o: { id: string }) => o.id === body.option_id);
+    if (!option) {
+      return c.json({ success: false, error: 'Invalid option' }, 400);
+    }
+
+    option.votes = (option.votes || 0) + 1;
+
+    await c.env.DB.prepare(
+      'UPDATE content_blocks SET data = ? WHERE id = ?'
+    ).bind(JSON.stringify(pollData), blockId).run();
+
+    // Set cookie to prevent re-voting (30 days)
+    const res = c.json({ success: true, data: pollData });
+    res.headers.set('Set-Cookie', `${cookieName}=1; Path=/; Max-Age=2592000; SameSite=Lax`);
+    return res;
+  } catch {
+    return c.json({ success: false, error: 'Failed to vote' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/newsletter/:blockId — submit email signup
+ */
+publicRoutes.post('/newsletter/:blockId', async (c) => {
+  const blockId = c.req.param('blockId');
+  const body = await c.req.json<{ email: string }>();
+
+  if (!body.email || !body.email.includes('@')) {
+    return c.json({ success: false, error: 'Valid email is required' }, 400);
+  }
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT id FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'newsletter').first();
+
+    if (!block) {
+      return c.json({ success: false, error: 'Newsletter not found' }, 404);
+    }
+
+    const id = crypto.randomUUID();
+    const result = await c.env.DB.prepare(
+      'INSERT OR IGNORE INTO newsletter_signups (id, block_id, email) VALUES (?, ?, ?)'
+    ).bind(id, blockId, body.email).run();
+
+    // If no rows changed, email already existed — still return success to user
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to subscribe' }, 500);
+  }
+});
+
+/**
+ * GET /api/public/:username — fetch a public bio page with all content
+ */
+publicRoutes.get('/:username', async (c) => {
+  const username = c.req.param('username');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT * FROM bio_pages WHERE username = ? AND is_published = 1'
+    ).bind(username).first();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Page not found' }, 404);
+    }
+
+    const [links, socialLinks, embeds, blocks] = await Promise.all([
+      c.env.DB.prepare(
+        'SELECT * FROM links WHERE page_id = ? AND is_visible = 1 ORDER BY order_num'
+      ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT * FROM social_links WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT * FROM embed_blocks WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT * FROM content_blocks WHERE page_id = ? AND is_visible = 1 ORDER BY created_at'
+      ).bind(page.id).all(),
+    ]);
+
+    const sectionOrder = page.section_order
+      ? JSON.parse(page.section_order as string)
+      : null;
+
+    return c.json({
+      success: true,
+      data: {
+        page: { ...page, theme: JSON.parse(page.theme as string), section_order: sectionOrder },
+        links: links.results.map((l: Record<string, unknown>) => ({
+          ...l,
+          style_overrides: l.style_overrides ? JSON.parse(l.style_overrides as string) : null,
+        })),
+        socialLinks: socialLinks.results,
+        embeds: embeds.results,
+        blocks: blocks.results
+          .map((b: Record<string, unknown>) => ({
+            ...b,
+            data: JSON.parse(b.data as string),
+            is_visible: !!b.is_visible,
+          }))
+          .filter((b: Record<string, unknown>) => {
+            // Auto-hide past events
+            if (b.block_type === 'event') {
+              const eventDate = (b.data as { event_date?: string }).event_date;
+              if (eventDate && new Date(eventDate).getTime() < Date.now()) return false;
+            }
+            return true;
+          }),
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});

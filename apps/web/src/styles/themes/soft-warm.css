@@ -1,0 +1,20 @@
+/*
+ * SOFT WARM — Rounded corners, warm neutrals, pastels. Approachable, friendly.
+ * Typography: Rounded humanist sans
+ */
+[data-theme="soft-warm"] {
+  --page-bg: #fef7f0;
+  --page-surface: #ffffff;
+  --page-surface-alt: #fdf2e9;
+  --page-border: #f0dcc8;
+  --page-text: #3d2c1e;
+  --page-text-secondary: #7a6354;
+  --page-text-muted: #b09e8e;
+  --page-accent: #e07a3a;
+  --page-accent-hover: #c96828;
+  --page-btn-bg: #e07a3a;
+  --page-btn-text: #ffffff;
+  --page-btn-border: transparent;
+  --page-font-display: 'Nunito', sans-serif;
+  --page-font-body: 'Nunito Sans', sans-serif;
+}

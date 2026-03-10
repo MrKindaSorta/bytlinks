@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(wrangler:*)",
+      "Bash(curl:*)",
+      "Bash(cp:*)",
+      "Bash(grep:*)",
+      "Bash(xargs basename:*)",
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash(head:*)",
+      "Bash(ls:*)",
+      "Bash(find /mnt/c/bytlink4 -maxdepth 3 -name \".env*\" -o -name \"*.env\" 2>/dev/null | grep -v node_modules)",
+      "Bash(find /mnt/c/bytlink4 -maxdepth 2 -name \"vite.config*\" -o -name \"*.config.ts\" -o -name \"*.config.js\" 2>/dev/null | grep -v node_modules)",
+      "Bash(cat /mnt/c/bytlink4/migrations/*.sql)",
+      "Bash(find /mnt/c/bytlink4 -name \".gitignore\" -type f | xargs cat 2>/dev/null)",
+      "Bash(wc:*)",
+      "Bash(chmod +x:*)",
+      "Bash(CLOUDFLARE_ACCOUNT_ID=ce115cacc8399727e03f87e6604f9d6c wrangler d1:*)",
+      "Bash(CLOUDFLARE_ACCOUNT_ID=ce115cacc8399727e03f87e6604f9d6c wrangler r2:*)",
+      "Bash(CLOUDFLARE_ACCOUNT_ID=ce115cacc8399727e03f87e6604f9d6c wrangler deploy:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

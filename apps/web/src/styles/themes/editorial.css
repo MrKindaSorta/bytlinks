@@ -1,0 +1,20 @@
+/*
+ * EDITORIAL — Magazine layout, columns, structure. Writer/journalist feel.
+ * Typography: Serif body + sans display
+ */
+[data-theme="editorial"] {
+  --page-bg: #fefdfb;
+  --page-surface: #fefdfb;
+  --page-surface-alt: #f7f5f0;
+  --page-border: #e0dcd4;
+  --page-text: #1a1a18;
+  --page-text-secondary: #5c5a54;
+  --page-text-muted: #9c9a94;
+  --page-accent: #1a1a18;
+  --page-accent-hover: #3d3b36;
+  --page-btn-bg: transparent;
+  --page-btn-text: #1a1a18;
+  --page-btn-border: #1a1a18;
+  --page-font-display: 'Playfair Display', serif;
+  --page-font-body: 'Source Sans 3', sans-serif;
+}

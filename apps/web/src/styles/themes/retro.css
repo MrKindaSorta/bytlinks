@@ -1,0 +1,20 @@
+/*
+ * RETRO — Muted palette, vintage serif, worn feel. Nostalgic, memorable.
+ * Typography: Display serif or retro slab
+ */
+[data-theme="retro"] {
+  --page-bg: #f0e6d3;
+  --page-surface: #f7f0e2;
+  --page-surface-alt: #e8dcc6;
+  --page-border: #c8b898;
+  --page-text: #2a1f14;
+  --page-text-secondary: #6b5c48;
+  --page-text-muted: #a08e74;
+  --page-accent: #c44d2a;
+  --page-accent-hover: #a33e20;
+  --page-btn-bg: #c44d2a;
+  --page-btn-text: #f0e6d3;
+  --page-btn-border: transparent;
+  --page-font-display: 'Syne', sans-serif;
+  --page-font-body: 'Syne', sans-serif;
+}

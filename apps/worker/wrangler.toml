@@ -1,0 +1,35 @@
+name = "bytlinks-worker"
+account_id = "ce115cacc8399727e03f87e6604f9d6c"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Static assets — serves the built React SPA from the Worker
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+
+[vars]
+ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bytlinks-db"
+database_id = "443ee64a-bcbc-4c7e-977a-30c08f5d8f1c"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "bytlinks-uploads"
+
+# Local development overrides
+[env.dev]
+[env.dev.vars]
+ENVIRONMENT = "development"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "bytlinks-db"
+database_id = "local-dev-placeholder"
+
+[[env.dev.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "bytlinks-uploads"

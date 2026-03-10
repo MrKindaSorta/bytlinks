@@ -1,0 +1,20 @@
+/*
+ * DARK PRO — Deep dark bg, sharp accents, developer/tech tool feel
+ * Typography: Medium weight sans, high contrast
+ */
+[data-theme="dark-pro"] {
+  --page-bg: #0a0a0b;
+  --page-surface: #141416;
+  --page-surface-alt: #1c1c1f;
+  --page-border: #2a2a2e;
+  --page-text: #e4e4e7;
+  --page-text-secondary: #a1a1aa;
+  --page-text-muted: #71717a;
+  --page-accent: #22d3ee;
+  --page-accent-hover: #06b6d4;
+  --page-btn-bg: #22d3ee;
+  --page-btn-text: #0a0a0b;
+  --page-btn-border: transparent;
+  --page-font-display: 'JetBrains Mono', monospace;
+  --page-font-body: 'DM Sans', sans-serif;
+}

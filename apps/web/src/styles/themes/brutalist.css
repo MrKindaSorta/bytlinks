@@ -1,0 +1,31 @@
+/*
+ * BRUTALIST — Raw borders, stark grid, no softness, counter-culture
+ * Typography: Monospace or compressed grotesque
+ */
+[data-theme="brutalist"] {
+  --page-bg: #ffffff;
+  --page-surface: #ffffff;
+  --page-surface-alt: #f5f5f5;
+  --page-border: #000000;
+  --page-text: #000000;
+  --page-text-secondary: #333333;
+  --page-text-muted: #666666;
+  --page-accent: #000000;
+  --page-accent-hover: #333333;
+  --page-btn-bg: #000000;
+  --page-btn-text: #ffffff;
+  --page-btn-border: #000000;
+  --page-font-display: 'JetBrains Mono', monospace;
+  --page-font-body: 'JetBrains Mono', monospace;
+}
+
+[data-theme="brutalist"] .link-card {
+  border: 2px solid var(--page-text);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--page-text);
+}
+
+[data-theme="brutalist"] .link-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--page-text);
+}

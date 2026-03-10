@@ -1,0 +1,286 @@
+/* Theme CSS files — each defines [data-theme="..."] selectors */
+@import './themes/minimal.css';
+@import './themes/bold-type.css';
+@import './themes/dark-pro.css';
+@import './themes/glass.css';
+@import './themes/brutalist.css';
+@import './themes/editorial.css';
+@import './themes/soft-warm.css';
+@import './themes/neon-night.css';
+@import './themes/paper.css';
+@import './themes/gradient-flow.css';
+@import './themes/grid.css';
+@import './themes/retro.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * BytLinks Design Token System
+ *
+ * These tokens define the BytLinks dashboard and marketing site identity.
+ * They are NOT user-facing page themes — those are in styles/themes/*.css.
+ *
+ * Brand palette: warm slate + strong teal accent.
+ * Banned: purple, violet, indigo, Inter, Roboto, Open Sans, Lato, system-ui.
+ */
+
+:root {
+  /* ── Brand Colors (Dashboard + Marketing) ── */
+  --brand-bg: #fafaf9;
+  --brand-surface: #ffffff;
+  --brand-surface-alt: #f5f5f4;
+  --brand-border: #e7e5e4;
+  --brand-text: #1c1917;
+  --brand-text-secondary: #57534e;
+  --brand-text-muted: #a8a29e;
+  --brand-accent: #0d9488;
+  --brand-accent-hover: #0f766e;
+  --brand-accent-muted: #99f6e4;
+  --brand-danger: #dc2626;
+  --brand-danger-hover: #b91c1c;
+  --brand-success: #16a34a;
+  --brand-warning: #d97706;
+
+  /* ── Typography (Dashboard) ── */
+  --font-display: 'Cabinet Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+
+  /* ── Shadows (custom curves, NOT Tailwind defaults) ── */
+  --shadow-sm: 0 1px 2px 0 rgb(28 25 23 / 0.04);
+  --shadow-md: 0 2px 8px -2px rgb(28 25 23 / 0.08), 0 1px 3px -1px rgb(28 25 23 / 0.04);
+  --shadow-lg: 0 8px 24px -4px rgb(28 25 23 / 0.1), 0 2px 8px -2px rgb(28 25 23 / 0.04);
+
+  /* ── Timing ── */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Spacing Scale ── */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  /* ── Border Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Page Theme Tokens (defaults — overridden per theme) ── */
+  --page-bg: #ffffff;
+  --page-surface: #ffffff;
+  --page-surface-alt: #f5f5f4;
+  --page-border: #e7e5e4;
+  --page-text: #1c1917;
+  --page-text-secondary: #57534e;
+  --page-text-muted: #a8a29e;
+  --page-accent: #1c1917;
+  --page-accent-hover: #44403c;
+  --page-btn-bg: #1c1917;
+  --page-btn-text: #ffffff;
+  --page-btn-border: transparent;
+  --page-font-display: 'Cabinet Grotesk', sans-serif;
+  --page-font-body: 'DM Sans', sans-serif;
+}
+
+/* ── Base Reset & Typography ── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--brand-text);
+  background-color: var(--brand-bg);
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+/* ── Focus Ring (accessible, on-brand) ── */
+
+:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Selection ── */
+
+::selection {
+  background-color: var(--brand-accent-muted);
+  color: var(--brand-text);
+}
+
+/* ── Scrollbar (subtle) ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-text-muted);
+}
+
+/* ── Tiptap Editor Content (Dashboard) ── */
+
+.tiptap p {
+  margin-bottom: 0.5em;
+}
+
+.tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+.tiptap li {
+  margin-bottom: 0.15em;
+}
+
+.tiptap a {
+  color: var(--brand-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tiptap a:hover {
+  color: var(--brand-accent-hover);
+}
+
+/* ── About Me Content (Public Page) ── */
+
+.about-me-content p {
+  margin-bottom: 0.5em;
+}
+
+.about-me-content p:last-child {
+  margin-bottom: 0;
+}
+
+.about-me-content ul,
+.about-me-content ol {
+  padding-left: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.about-me-content ul {
+  list-style-type: disc;
+}
+
+.about-me-content ol {
+  list-style-type: decimal;
+}
+
+.about-me-content li {
+  margin-bottom: 0.15em;
+}
+
+.about-me-content a {
+  color: var(--page-accent, currentColor);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.about-me-content a:hover {
+  opacity: 0.8;
+}
+
+.about-me-content strong,
+.about-me-content b {
+  font-weight: 600;
+}
+
+.about-me-content em,
+.about-me-content i {
+  font-style: italic;
+}
+
+.about-me-content u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Block Animations ── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hide scrollbar utility for collabs/carousel containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

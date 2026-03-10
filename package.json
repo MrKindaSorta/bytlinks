@@ -1,0 +1,22 @@
+{
+  "name": "bytlinks",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:worker": "npm run dev --workspace=apps/worker",
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:worker\"",
+    "build:web": "npm run build --workspace=apps/web",
+    "build": "npm run build:web",
+    "deploy": "npm run build && npm run deploy --workspace=apps/worker",
+    "db:init": "wrangler d1 execute bytlinks-db --local --file=./schema.sql",
+    "db:migrate": "wrangler d1 execute bytlinks-db --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}

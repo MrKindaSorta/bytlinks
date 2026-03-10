@@ -1,0 +1,20 @@
+/*
+ * MINIMAL — Ultra-clean, heavy whitespace, Apple-esque calm authority
+ * Typography: Thin sans-serif, tight tracking
+ */
+[data-theme="minimal"] {
+  --page-bg: #ffffff;
+  --page-surface: #ffffff;
+  --page-surface-alt: #fafaf9;
+  --page-border: #e7e5e4;
+  --page-text: #1c1917;
+  --page-text-secondary: #78716c;
+  --page-text-muted: #a8a29e;
+  --page-accent: #1c1917;
+  --page-accent-hover: #44403c;
+  --page-btn-bg: #1c1917;
+  --page-btn-text: #ffffff;
+  --page-btn-border: transparent;
+  --page-font-display: 'Outfit', sans-serif;
+  --page-font-body: 'Outfit', sans-serif;
+}

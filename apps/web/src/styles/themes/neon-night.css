@@ -1,0 +1,24 @@
+/*
+ * NEON NIGHT — Dark bg, vivid neon highlights. Music, gaming, nightlife.
+ * Typography: Bold condensed sans
+ */
+[data-theme="neon-night"] {
+  --page-bg: #0a0a12;
+  --page-surface: #12121c;
+  --page-surface-alt: #1a1a28;
+  --page-border: #2a2a3c;
+  --page-text: #e8e8f0;
+  --page-text-secondary: #9898b0;
+  --page-text-muted: #5e5e78;
+  --page-accent: #00ff88;
+  --page-accent-hover: #00dd76;
+  --page-btn-bg: transparent;
+  --page-btn-text: #00ff88;
+  --page-btn-border: #00ff88;
+  --page-font-display: 'Barlow Condensed', sans-serif;
+  --page-font-body: 'Barlow', sans-serif;
+}
+
+[data-theme="neon-night"] .link-card:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
+}

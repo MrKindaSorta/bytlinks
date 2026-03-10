@@ -1,0 +1,387 @@
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
+import type { BioPage, Link as LinkType, SocialLink, EmbedBlock, ContentBlock, ContentBlockType, Theme } from '@bytlinks/shared';
+import { resolveBlockColumnSpan } from '@bytlinks/shared/constants';
+import { PageShell } from '../components/page/PageShell';
+import { PageHero } from '../components/page/PageHero';
+import { PageLinks } from '../components/page/PageLinks';
+import { PageEmbeds } from '../components/page/PageEmbeds';
+import { PageSocials } from '../components/page/PageSocials';
+import { PageBadge } from '../components/page/PageBadge';
+import { SectionsRenderer } from '../components/page/SectionsRenderer';
+import { CardsRenderer } from '../components/page/CardsRenderer';
+import { blockRendererRegistry } from '../components/page/blocks/blockRendererRegistry';
+import { resolveButtonStyle, resolveLayoutVariant, resolveContentDisplay, resolveDesktopLayoutVariant, resolveDesktopContentDisplay, resolveTwoColumnDesktop } from '../utils/styleDefaults';
+
+interface PageData {
+  page: BioPage;
+  links: LinkType[];
+  socialLinks: SocialLink[];
+  embeds: EmbedBlock[];
+  blocks: ContentBlock[];
+}
+
+/** Fire a page_view analytics event (fire-and-forget). */
+function trackPageView(pageId: string) {
+  fetch('/api/analytics/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page_id: pageId, event_type: 'page_view' }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+/* ── Spotlight scroll indicator ── */
+
+function ScrollIndicator() {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 animate-bounce">
+      <ChevronDown className="w-5 h-5 opacity-40" style={{ color: 'var(--page-text)' }} />
+      <span className="text-xs font-medium opacity-30" style={{ color: 'var(--page-text)' }}>
+        Scroll for more
+      </span>
+    </div>
+  );
+}
+
+/** Determine if a section_order entry is a full-width block type */
+function isFullWidthEntry(entry: string, blockMap: Map<string, ContentBlock>): boolean {
+  if (entry === 'links') return false;
+  if (entry.startsWith('block:')) {
+    const block = blockMap.get(entry.slice(6));
+    if (!block) return false;
+    return resolveBlockColumnSpan(block) === 'full';
+  }
+  return false;
+}
+
+/* ── Main ── */
+
+export default function PublicPage() {
+  const { username } = useParams<{ username: string }>();
+  const [data, setData] = useState<PageData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const trackedRef = useRef(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!username) return;
+    fetch(`/api/public/${username}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.success) { setError(json.error || 'Page not found'); return; }
+        setData(json.data);
+      })
+      .catch(() => setError('Failed to load page'))
+      .finally(() => setLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (data && !trackedRef.current) {
+      trackedRef.current = true;
+      trackPageView(data.page.id);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (data?.page) {
+      document.title = data.page.display_name
+        ? `${data.page.display_name} | BytLinks`
+        : `@${username} | BytLinks`;
+    } else if (error) {
+      document.title = '404 | BytLinks';
+    }
+    return () => { document.title = 'BytLinks'; };
+  }, [data, error, username]);
+
+  // Scroll-reveal — observe from the page root so both mobile AND desktop blocks get revealed
+  useEffect(() => {
+    const root = pageRef.current;
+    if (!root) return;
+    const observer = new IntersectionObserver(
+      (entries) => { entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('is-visible'); }); },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+    );
+    const elements = root.querySelectorAll('.scroll-reveal');
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-bg">
+        <div className="w-5 h-5 border-2 border-brand-text-muted border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg px-4">
+        <h1 className="font-display text-6xl font-900 tracking-[-0.05em] text-brand-text mb-3">404</h1>
+        <p className="font-body text-sm text-brand-text-secondary mb-6">{error || 'This page does not exist.'}</p>
+        <a href="/" className="font-body text-sm font-medium text-brand-accent hover:text-brand-accent-hover transition-colors duration-150">
+          Go to BytLinks
+        </a>
+      </div>
+    );
+  }
+
+  const { page, links, socialLinks, embeds, blocks } = data;
+  const theme: Theme = page.theme;
+
+  const mobileLayout = resolveLayoutVariant(theme);
+  const mobileDisplay = resolveContentDisplay(theme);
+  const desktopLayout = resolveDesktopLayoutVariant(theme);
+  const desktopDisplay = resolveDesktopContentDisplay(theme);
+  const twoColumn = resolveTwoColumnDesktop(theme);
+
+  const btnStyle = resolveButtonStyle(theme);
+  const blockMap = new Map((blocks || []).map((b) => [b.id, b]));
+  const sectionsConfig = theme.sectionsConfig ?? null;
+  const showBranding = !!page.show_branding;
+
+  const mobileSocials = socialLinks.length > 0
+    ? <PageSocials socialLinks={socialLinks} layoutVariant={mobileLayout} pageId={page.id} />
+    : null;
+  const desktopSocials = socialLinks.length > 0
+    ? <PageSocials socialLinks={socialLinks} layoutVariant={desktopLayout} pageId={page.id} />
+    : null;
+
+  const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} />;
+  const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} />;
+
+  const desktopIsSplit = desktopLayout !== 'centered';
+  const desktopIsLeft = desktopLayout === 'left-photo';
+
+  /* ── Flat section_order renderer (used by Flow + Spotlight) ── */
+
+  function renderFlatSections(useTwoColumn: boolean) {
+    const order = page.section_order ?? ['social_links', 'links'];
+
+    const items = order.map((entry) => {
+      if (entry === 'social_links') return null;
+      if (entry === 'links') {
+        if (useTwoColumn) {
+          return (
+            <div key="links" style={{ gridColumn: '1 / -1' }}>
+              <div className="two-col-grid grid gap-3" style={{ gridTemplateColumns: '1fr' }}>
+                <PageLinks links={links} buttonStyle={btnStyle} pageId={page.id} asFragment />
+              </div>
+              <PageEmbeds embeds={embeds} />
+            </div>
+          );
+        }
+        return (
+          <div key="links">
+            <PageLinks links={links} buttonStyle={btnStyle} pageId={page.id} />
+            <PageEmbeds embeds={embeds} />
+          </div>
+        );
+      }
+      if (entry.startsWith('block:')) {
+        const block = blockMap.get(entry.slice(6));
+        if (!block || !block.is_visible) return null;
+        const Renderer = blockRendererRegistry[block.block_type as ContentBlockType];
+        if (!Renderer) return null;
+        const fullWidth = isFullWidthEntry(entry, blockMap);
+        return (
+          <div key={entry} style={useTwoColumn && fullWidth ? { gridColumn: '1 / -1' } : undefined}>
+            <Renderer block={block} pageId={page.id} />
+          </div>
+        );
+      }
+      return null;
+    });
+
+    if (useTwoColumn) {
+      return (
+        <>
+          <style>{`@media (min-width: 768px) { .two-col-content { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
+          <div className="two-col-content grid gap-4" style={{ gridTemplateColumns: '1fr' }}>
+            {items}
+          </div>
+        </>
+      );
+    }
+
+    return <>{items}</>;
+  }
+
+  /* ── Sections/Cards content block (just the grouped content, no hero) ── */
+
+  function renderGroupedContent() {
+    if (!sectionsConfig) return renderFlatSections(false);
+
+    return (
+      <SectionsRenderer
+        config={sectionsConfig}
+        links={links}
+        embeds={embeds}
+        blocks={blocks}
+        buttonStyle={btnStyle}
+        pageId={page.id}
+      />
+    );
+  }
+
+  function renderCardsContent() {
+    if (!sectionsConfig) return renderFlatSections(false);
+
+    return (
+      <CardsRenderer
+        config={sectionsConfig}
+        links={links}
+        embeds={embeds}
+        blocks={blocks}
+        buttonStyle={btnStyle}
+        pageId={page.id}
+      />
+    );
+  }
+
+  /* ── Mobile content renderer ── */
+
+  function renderMobile() {
+    const wrap = (children: React.ReactNode) => (
+      <div className="max-w-lg mx-auto px-5 py-10">{children}</div>
+    );
+
+    if (mobileDisplay === 'spotlight') {
+      return wrap(
+        <>
+          <div className="min-h-[85vh] flex flex-col justify-center">
+            {mobileHero}
+            {mobileSocials}
+            <ScrollIndicator />
+          </div>
+          {renderFlatSections(false)}
+        </>,
+      );
+    }
+
+    if (mobileDisplay === 'sections') {
+      return wrap(
+        <>
+          {mobileHero}
+          {mobileSocials}
+          {renderGroupedContent()}
+        </>,
+      );
+    }
+
+    if (mobileDisplay === 'cards') {
+      return wrap(
+        <>
+          {mobileHero}
+          {mobileSocials}
+          {renderCardsContent()}
+        </>,
+      );
+    }
+
+    // Flow (default)
+    return wrap(
+      <>
+        {mobileHero}
+        {mobileSocials}
+        {renderFlatSections(false)}
+      </>,
+    );
+  }
+
+  /* ── Desktop content renderer ── */
+
+  function renderDesktop() {
+    const splitGrid = (heroNode: React.ReactNode, contentNode: React.ReactNode) => (
+      <div className="max-w-5xl mx-auto px-5 py-16">
+        <div className="grid grid-cols-[7fr_13fr] gap-12 items-start">
+          <div className={`sticky top-16 self-start ${desktopIsLeft ? 'order-1' : 'order-2'}`}>
+            {heroNode}
+            {desktopSocials}
+          </div>
+          <div className={desktopIsLeft ? 'order-2' : 'order-1'}>
+            {contentNode}
+          </div>
+        </div>
+      </div>
+    );
+
+    const centeredWrap = (children: React.ReactNode) => (
+      <div className="max-w-lg mx-auto px-5 py-16">{children}</div>
+    );
+
+    /* ── Spotlight ── */
+    if (desktopDisplay === 'spotlight') {
+      if (desktopIsSplit) {
+        return splitGrid(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
+      }
+      return centeredWrap(
+        <>
+          <div className="min-h-[85vh] flex flex-col justify-center">
+            {desktopHero}
+            {desktopSocials}
+            <ScrollIndicator />
+          </div>
+          <div>{renderFlatSections(twoColumn)}</div>
+        </>,
+      );
+    }
+
+    /* ── Sections ── */
+    if (desktopDisplay === 'sections') {
+      if (desktopIsSplit) {
+        return splitGrid(desktopHero, <div>{renderGroupedContent()}</div>);
+      }
+      return centeredWrap(
+        <>
+          {desktopHero}
+          {desktopSocials}
+          <div>{renderGroupedContent()}</div>
+        </>,
+      );
+    }
+
+    /* ── Cards ── */
+    if (desktopDisplay === 'cards') {
+      if (desktopIsSplit) {
+        return splitGrid(desktopHero, <div>{renderCardsContent()}</div>);
+      }
+      return centeredWrap(
+        <>
+          {desktopHero}
+          {desktopSocials}
+          <div>{renderCardsContent()}</div>
+        </>,
+      );
+    }
+
+    /* ── Flow (default) ── */
+    if (desktopIsSplit) {
+      return splitGrid(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
+    }
+    return centeredWrap(
+      <>
+        {desktopHero}
+        {desktopSocials}
+        <div>{renderFlatSections(twoColumn)}</div>
+      </>,
+    );
+  }
+
+  return (
+    <PageShell theme={theme}>
+      <div ref={pageRef}>
+        <div className="md:hidden">
+          {renderMobile()}
+        </div>
+        <div className="hidden md:block">
+          {renderDesktop()}
+        </div>
+      </div>
+      {showBranding && <PageBadge />}
+    </PageShell>
+  );
+}
