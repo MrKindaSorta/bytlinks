@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useBlockStore } from '../store/blockStore';
 import { usePageStore } from '../store/pageStore';
+import { useUiStore } from '../store/uiStore';
 import type { ContentBlock, ContentBlockType, ContentBlockData } from '@bytlinks/shared';
 
 export function useBlocks() {
@@ -88,7 +89,13 @@ export function useBlocks() {
       credentials: 'include',
     });
     const data = await res.json();
-    if (!data.success) throw new Error(data.error);
+    if (!data.success) {
+      const msg = data.error?.includes('limit')
+        ? 'Block limit reached — upgrade to Pro for more blocks'
+        : data.error || 'Failed to duplicate block';
+      useUiStore.getState().addToast(msg, 'error');
+      return null;
+    }
     const newBlock = data.data as ContentBlock;
     useBlockStore.getState().addBlock(newBlock);
     useBlockStore.getState().setFocusedBlockId(newBlock.id);
