@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Crown, Check, AlertTriangle } from 'lucide-react';
 import { QrCodeSection } from './QrCodeSection';
 import { VerificationSection } from './VerificationSection';
+import { ExportSection } from './ExportSection';
 
 interface BillingStatus {
   plan: string;
@@ -101,6 +102,9 @@ export function SettingsPanel() {
 
       {/* Verification */}
       <VerificationSection />
+
+      {/* Export */}
+      <ExportSection username={page?.username} />
 
       {/* Plan / Upgrade */}
       {loading ? (
@@ -229,6 +233,7 @@ function DeleteAccountSection({ username, onDeleted }: { username?: string; onDe
         <>
           <p className="font-body text-sm text-red-600/80 mb-4">
             Permanently delete your account and all associated data.
+            Please <span className="font-semibold">export your data first</span> using the Export section above — deletion cannot be undone.
           </p>
           <button
             onClick={() => setExpanded(true)}
@@ -253,7 +258,7 @@ function DeleteAccountSection({ username, onDeleted }: { username?: string; onDe
                   The handle <span className="font-semibold">bytlinks.com/{username}</span> will be released and can be claimed by anyone
                 </li>
               )}
-              <li>This cannot be reversed — there is no recovery option</li>
+              <li>This cannot be reversed — there is no recovery option. <span className="font-semibold">Export your data first.</span></li>
             </ul>
           </div>
 

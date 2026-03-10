@@ -11,6 +11,7 @@ import { blockRoutes } from './routes/blocks';
 import { adminRoutes } from './routes/admin';
 import { verificationRoutes } from './routes/verification';
 import { importRoutes } from './routes/import';
+import { exportRoutes } from './routes/export';
 
 export type Env = {
   DB: D1Database;
@@ -43,6 +44,7 @@ app.route('/api/blocks', blockRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/verification', verificationRoutes);
 app.route('/api/import', importRoutes);
+app.route('/api/export', exportRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
