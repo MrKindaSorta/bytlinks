@@ -415,10 +415,10 @@ publicRoutes.get('/:username/vcard', async (c) => {
       lines.push(`ADR;TYPE=WORK:;;${vcardEscape(page.address as string)};;;;`);
     }
 
-    lines.push(`URL:https://bytlinks.com/${username}`);
+    lines.push(`URL:https://www.bytlinks.com/${username}`);
 
     if (page.avatar_r2_key) {
-      lines.push(`PHOTO;VALUE=URI:https://bytlinks.com/api/public/avatar/${page.avatar_r2_key}`);
+      lines.push(`PHOTO;VALUE=URI:https://www.bytlinks.com/api/public/avatar/${page.avatar_r2_key}`);
     }
 
     lines.push('END:VCARD');

@@ -11,7 +11,7 @@ export function BusinessCardTab() {
   const [copied, setCopied] = useState(false);
 
   const username = page?.username ?? '';
-  const pageUrl = `https://bytlinks.com/${username}`;
+  const pageUrl = `https://www.bytlinks.com/${username}`;
   const vcardUrl = `/api/public/${username}/vcard`;
 
   const avatarUrl = page?.avatar_r2_key

@@ -15,7 +15,7 @@ export function QrCodeSection({ username }: QrCodeSectionProps) {
   const [size, setSize] = useState<256 | 512 | 1024>(256);
   const [format, setFormat] = useState<'png' | 'svg'>('png');
 
-  const pageUrl = `https://bytlinks.com/${username}`;
+  const pageUrl = `https://www.bytlinks.com/${username}`;
 
   const renderQr = useCallback(async () => {
     const canvas = canvasRef.current;
