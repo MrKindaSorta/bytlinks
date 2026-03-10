@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS bio_pages (
   show_branding INTEGER DEFAULT 1,
   theme JSON NOT NULL DEFAULT '{}',
   section_order TEXT DEFAULT '["social_links","links"]',
+  phone TEXT,
+  company_name TEXT,
+  address TEXT,
+  show_email_page INTEGER DEFAULT 0,
+  show_email_card INTEGER DEFAULT 1,
+  show_phone_page INTEGER DEFAULT 0,
+  show_phone_card INTEGER DEFAULT 1,
+  show_company_page INTEGER DEFAULT 0,
+  show_company_card INTEGER DEFAULT 1,
+  show_address_page INTEGER DEFAULT 0,
+  show_address_card INTEGER DEFAULT 1,
   is_published INTEGER DEFAULT 1,
   created_at INTEGER DEFAULT (unixepoch())
 );

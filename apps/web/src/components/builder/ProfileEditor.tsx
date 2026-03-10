@@ -1,13 +1,37 @@
 import { useState, useRef } from 'react';
-import { Camera, ChevronDown } from 'lucide-react';
+import { Camera, ChevronDown, Mail, Phone, Building2, MapPin } from 'lucide-react';
 import { usePage } from '../../hooks/usePage';
+import { useAuth } from '../../hooks/useAuth';
 import { useUpload } from '../../hooks/useUpload';
 import { useDebounce } from '../../hooks/useDebounce';
 import { AboutMeEditor } from './AboutMeEditor';
 import { ImageCropEditor, CROP_SQUARE } from '../shared/ImageCropEditor';
 
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative w-7 h-[16px] rounded-full transition-colors duration-200 ${
+          checked ? 'bg-brand-accent' : 'bg-brand-border'
+        }`}
+      >
+        <span
+          className={`absolute top-[2px] left-[2px] w-[12px] h-[12px] rounded-full bg-white
+                     transition-transform duration-200 ${checked ? 'translate-x-[11px]' : ''}`}
+        />
+      </button>
+      <span className="font-body text-[11px] text-brand-text-muted whitespace-nowrap">{label}</span>
+    </label>
+  );
+}
+
 export function ProfileEditor() {
   const { page, updatePage } = usePage();
+  const { user } = useAuth();
   const { uploadAvatar, uploading } = useUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -17,6 +41,24 @@ export function ProfileEditor() {
   const [aboutMe, setAboutMe] = useState(page?.about_me ?? '');
   const [aboutExpanded, setAboutExpanded] = useState(page?.about_me_expanded ?? false);
   const [aboutOpen, setAboutOpen] = useState(!!page?.about_me);
+  const [contactOpen, setContactOpen] = useState(
+    !!(page?.phone || page?.company_name || page?.address)
+  );
+
+  // Contact fields
+  const [phone, setPhone] = useState(page?.phone ?? '');
+  const [companyName, setCompanyName] = useState(page?.company_name ?? '');
+  const [address, setAddress] = useState(page?.address ?? '');
+
+  // Visibility toggles
+  const [showEmailPage, setShowEmailPage] = useState(page?.show_email_page ?? false);
+  const [showEmailCard, setShowEmailCard] = useState(page?.show_email_card ?? true);
+  const [showPhonePage, setShowPhonePage] = useState(page?.show_phone_page ?? false);
+  const [showPhoneCard, setShowPhoneCard] = useState(page?.show_phone_card ?? true);
+  const [showCompanyPage, setShowCompanyPage] = useState(page?.show_company_page ?? false);
+  const [showCompanyCard, setShowCompanyCard] = useState(page?.show_company_card ?? true);
+  const [showAddressPage, setShowAddressPage] = useState(page?.show_address_page ?? false);
+  const [showAddressCard, setShowAddressCard] = useState(page?.show_address_card ?? true);
 
   const debouncedSave = useDebounce(async (field: string, value: string) => {
     try {
@@ -57,6 +99,11 @@ export function ProfileEditor() {
     } catch {
       // toast error in future
     }
+  }
+
+  function handleToggle(field: string, value: boolean, setter: (v: boolean) => void) {
+    setter(value);
+    updatePage({ [field]: value }).catch(() => {});
   }
 
   const avatarUrl = page?.avatar_r2_key
@@ -208,6 +255,179 @@ export function ProfileEditor() {
           </div>
         </div>
       </div>
+
+      {/* Contact Info — collapsible section */}
+      <div className="rounded-lg border border-brand-border overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setContactOpen(!contactOpen)}
+          className="w-full flex items-center justify-between px-3 py-2.5
+                     bg-brand-surface-alt hover:bg-brand-surface-alt/80
+                     transition-colors duration-fast"
+        >
+          <span className="font-body text-sm font-medium text-brand-text">
+            Contact Info
+            <span className="font-normal text-brand-text-muted ml-1.5">— for business card</span>
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 text-brand-text-muted transition-transform duration-200 ${
+              contactOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+
+        <div
+          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+          style={{ maxHeight: contactOpen ? '900px' : '0px' }}
+        >
+          <div className="px-3 py-3 border-t border-brand-border space-y-4">
+            <p className="font-body text-xs text-brand-text-muted">
+              Add your contact details. Toggle visibility for your public page and business card separately.
+            </p>
+
+            {/* Column headers */}
+            <div className="flex items-center justify-end gap-4 pr-1">
+              <span className="font-body text-[11px] font-medium text-brand-text-muted uppercase tracking-wide">Page</span>
+              <span className="font-body text-[11px] font-medium text-brand-text-muted uppercase tracking-wide">Card</span>
+            </div>
+
+            {/* Email (read-only, uses account email) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                  <Mail className="w-3.5 h-3.5 text-brand-text-muted" />
+                  Email
+                </label>
+                <div className="flex items-center gap-3">
+                  <Toggle
+                    checked={showEmailPage}
+                    onChange={(v) => handleToggle('show_email_page', v, setShowEmailPage)}
+                    label=""
+                  />
+                  <Toggle
+                    checked={showEmailCard}
+                    onChange={(v) => handleToggle('show_email_card', v, setShowEmailCard)}
+                    label=""
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-brand-border bg-brand-surface-alt">
+                <span className="font-body text-sm text-brand-text-muted">{user?.email}</span>
+              </div>
+              <p className="font-body text-[11px] text-brand-text-muted">Uses your account email</p>
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="contact-phone" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                  <Phone className="w-3.5 h-3.5 text-brand-text-muted" />
+                  Phone
+                </label>
+                <div className="flex items-center gap-3">
+                  <Toggle
+                    checked={showPhonePage}
+                    onChange={(v) => handleToggle('show_phone_page', v, setShowPhonePage)}
+                    label=""
+                  />
+                  <Toggle
+                    checked={showPhoneCard}
+                    onChange={(v) => handleToggle('show_phone_card', v, setShowPhoneCard)}
+                    label=""
+                  />
+                </div>
+              </div>
+              <input
+                id="contact-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  debouncedSave('phone', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+
+            {/* Company */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="contact-company" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                  <Building2 className="w-3.5 h-3.5 text-brand-text-muted" />
+                  Company
+                </label>
+                <div className="flex items-center gap-3">
+                  <Toggle
+                    checked={showCompanyPage}
+                    onChange={(v) => handleToggle('show_company_page', v, setShowCompanyPage)}
+                    label=""
+                  />
+                  <Toggle
+                    checked={showCompanyCard}
+                    onChange={(v) => handleToggle('show_company_card', v, setShowCompanyCard)}
+                    label=""
+                  />
+                </div>
+              </div>
+              <input
+                id="contact-company"
+                type="text"
+                value={companyName}
+                onChange={(e) => {
+                  setCompanyName(e.target.value);
+                  debouncedSave('company_name', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="Acme Corp"
+              />
+            </div>
+
+            {/* Address */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="contact-address" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                  <MapPin className="w-3.5 h-3.5 text-brand-text-muted" />
+                  Address
+                </label>
+                <div className="flex items-center gap-3">
+                  <Toggle
+                    checked={showAddressPage}
+                    onChange={(v) => handleToggle('show_address_page', v, setShowAddressPage)}
+                    label=""
+                  />
+                  <Toggle
+                    checked={showAddressCard}
+                    onChange={(v) => handleToggle('show_address_card', v, setShowAddressCard)}
+                    label=""
+                  />
+                </div>
+              </div>
+              <input
+                id="contact-address"
+                type="text"
+                value={address}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  debouncedSave('address', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="123 Main St, City, State"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {cropFile && (
         <ImageCropEditor
           file={cropFile}

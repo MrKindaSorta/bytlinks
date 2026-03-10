@@ -118,6 +118,17 @@ pageRoutes.put('/me', async (c) => {
     section_order?: string[];
     job_title?: string;
     profession?: string;
+    phone?: string;
+    company_name?: string;
+    address?: string;
+    show_email_page?: boolean;
+    show_email_card?: boolean;
+    show_phone_page?: boolean;
+    show_phone_card?: boolean;
+    show_company_page?: boolean;
+    show_company_card?: boolean;
+    show_address_page?: boolean;
+    show_address_card?: boolean;
   }>();
 
   try {
@@ -167,6 +178,29 @@ pageRoutes.put('/me', async (c) => {
     if (body.profession !== undefined) {
       updates.push('profession = ?');
       values.push(body.profession);
+    }
+    if (body.phone !== undefined) {
+      updates.push('phone = ?');
+      values.push(body.phone);
+    }
+    if (body.company_name !== undefined) {
+      updates.push('company_name = ?');
+      values.push(body.company_name);
+    }
+    if (body.address !== undefined) {
+      updates.push('address = ?');
+      values.push(body.address);
+    }
+    for (const toggle of [
+      'show_email_page', 'show_email_card',
+      'show_phone_page', 'show_phone_card',
+      'show_company_page', 'show_company_card',
+      'show_address_page', 'show_address_card',
+    ] as const) {
+      if (body[toggle] !== undefined) {
+        updates.push(`${toggle} = ?`);
+        values.push(body[toggle] ? 1 : 0);
+      }
     }
 
     if (updates.length === 0) {

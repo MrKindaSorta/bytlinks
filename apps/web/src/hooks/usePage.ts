@@ -37,6 +37,17 @@ export function usePage() {
     theme?: Theme;
     show_branding?: boolean;
     section_order?: string[];
+    phone?: string;
+    company_name?: string;
+    address?: string;
+    show_email_page?: boolean;
+    show_email_card?: boolean;
+    show_phone_page?: boolean;
+    show_phone_card?: boolean;
+    show_company_page?: boolean;
+    show_company_card?: boolean;
+    show_address_page?: boolean;
+    show_address_card?: boolean;
   }) => {
     const res = await fetch('/api/pages/me', {
       method: 'PUT',
@@ -48,7 +59,11 @@ export function usePage() {
     if (!data.success) throw new Error(data.error);
 
     const current = usePageStore.getState().page;
-    if (updates.display_name !== undefined || updates.bio !== undefined || updates.about_me !== undefined || updates.about_me_expanded !== undefined || updates.section_order !== undefined) {
+    const directFields = ['display_name', 'bio', 'about_me', 'about_me_expanded', 'section_order',
+      'phone', 'company_name', 'address',
+      'show_email_page', 'show_email_card', 'show_phone_page', 'show_phone_card',
+      'show_company_page', 'show_company_card', 'show_address_page', 'show_address_card'] as const;
+    if (directFields.some((f) => (updates as Record<string, unknown>)[f] !== undefined)) {
       usePageStore.getState().setPage(current ? { ...current, ...updates } as typeof current : null);
     }
     if (updates.theme) {

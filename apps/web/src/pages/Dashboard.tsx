@@ -2,19 +2,21 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers } from 'lucide-react';
+import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard } from 'lucide-react';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
 import { SettingsPanel } from '../components/settings/SettingsPanel';
 import { MyBytLink } from '../components/editor/MyBytLink';
 import { TemplatePicker } from '../components/templates/TemplatePicker';
 import { ManageSection } from '../components/manage/ManageSection';
+import { BusinessCardTab } from '../components/businesscard/BusinessCardTab';
 import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
-type DashboardTab = 'mybytlink' | 'analytics' | 'settings' | 'manage';
+type DashboardTab = 'mybytlink' | 'card' | 'analytics' | 'settings' | 'manage';
 
 const TAB_ICONS = {
   mybytlink: LayoutDashboard,
+  card: CreditCard,
   analytics: BarChart3,
   settings: Settings,
   manage: Layers,
@@ -46,6 +48,7 @@ export default function Dashboard() {
 
   const tabs: { key: DashboardTab; label: string; mobileLabel?: string }[] = [
     { key: 'mybytlink', label: 'My BytLink', mobileLabel: 'My Page' },
+    { key: 'card', label: 'Business Card', mobileLabel: 'Card' },
     { key: 'analytics', label: 'Analytics' },
     { key: 'settings', label: 'Settings' },
     { key: 'manage', label: 'Manage' },
@@ -124,6 +127,10 @@ export default function Dashboard() {
         {activeTab === 'mybytlink' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">
             <MyBytLink />
+          </main>
+        ) : activeTab === 'card' ? (
+          <main className="overflow-y-auto pb-20 lg:pb-0">
+            <BusinessCardTab />
           </main>
         ) : activeTab === 'manage' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">

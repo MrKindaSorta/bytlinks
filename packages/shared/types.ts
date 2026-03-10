@@ -212,6 +212,17 @@ export interface BioPage {
   is_published: boolean;
   job_title: string | null;
   profession: string | null;
+  phone: string | null;
+  company_name: string | null;
+  address: string | null;
+  show_email_page: boolean;
+  show_email_card: boolean;
+  show_phone_page: boolean;
+  show_phone_card: boolean;
+  show_company_page: boolean;
+  show_company_card: boolean;
+  show_address_page: boolean;
+  show_address_card: boolean;
   created_at: number;
 }
 

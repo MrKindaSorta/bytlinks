@@ -373,6 +373,80 @@ publicRoutes.get('/batch-profiles', async (c) => {
 });
 
 /**
+ * GET /api/public/:username/vcard — generate VCard (.vcf) for a public page
+ */
+publicRoutes.get('/:username/vcard', async (c) => {
+  const username = c.req.param('username');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT * FROM bio_pages WHERE username = ? AND is_published = 1'
+    ).bind(username).first();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Page not found' }, 404);
+    }
+
+    const owner = await c.env.DB.prepare(
+      'SELECT email FROM users WHERE id = ?'
+    ).bind(page.user_id).first<{ email: string }>();
+
+    // Build VCard using card-visibility toggles
+    const displayName = (page.display_name as string) || username;
+    const lines: string[] = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${vcardEscape(displayName)}`,
+    ];
+
+    if (page.company_name && page.show_company_card) {
+      lines.push(`ORG:${vcardEscape(page.company_name as string)}`);
+    }
+    if (page.job_title) {
+      lines.push(`TITLE:${vcardEscape(page.job_title as string)}`);
+    }
+    if (owner?.email && page.show_email_card) {
+      lines.push(`EMAIL;TYPE=INTERNET:${vcardEscape(owner.email)}`);
+    }
+    if (page.phone && page.show_phone_card) {
+      lines.push(`TEL;TYPE=CELL:${vcardEscape(page.phone as string)}`);
+    }
+    if (page.address && page.show_address_card) {
+      lines.push(`ADR;TYPE=WORK:;;${vcardEscape(page.address as string)};;;;`);
+    }
+
+    lines.push(`URL:https://bytlinks.com/${username}`);
+
+    if (page.avatar_r2_key) {
+      lines.push(`PHOTO;VALUE=URI:https://bytlinks.com/api/public/avatar/${page.avatar_r2_key}`);
+    }
+
+    lines.push('END:VCARD');
+
+    const vcf = lines.join('\r\n');
+
+    return new Response(vcf, {
+      headers: {
+        'Content-Type': 'text/vcard; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${username}.vcf"`,
+        'Cache-Control': 'no-cache',
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to generate vcard' }, 500);
+  }
+});
+
+/** Escape special characters for VCard fields. */
+function vcardEscape(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n');
+}
+
+/**
  * GET /api/public/:username — fetch a public bio page with all content
  */
 publicRoutes.get('/:username', async (c) => {
@@ -406,8 +480,8 @@ publicRoutes.get('/:username', async (c) => {
         'SELECT * FROM content_blocks WHERE page_id = ? AND is_visible = 1 ORDER BY created_at'
       ).bind(page.id).all(),
       c.env.DB.prepare(
-        'SELECT verified FROM users WHERE id = ?'
-      ).bind(page.user_id).first<{ verified: number }>(),
+        'SELECT verified, email FROM users WHERE id = ?'
+      ).bind(page.user_id).first<{ verified: number; email: string }>(),
     ]);
 
     const sectionOrder = page.section_order
@@ -424,6 +498,12 @@ publicRoutes.get('/:username', async (c) => {
           section_order: sectionOrder,
           job_title: page.job_title ?? null,
           profession: page.profession ?? null,
+          // Contact fields — only expose if page-visibility toggled on
+          email: page.show_email_page ? (owner?.email ?? null) : null,
+          phone: page.show_phone_page ? (page.phone ?? null) : null,
+          company_name: page.show_company_page ? (page.company_name ?? null) : null,
+          address: page.show_address_page ? (page.address ?? null) : null,
+          show_email_page: !!page.show_email_page,
         },
         links: links.results.map((l: Record<string, unknown>) => ({
           ...l,
