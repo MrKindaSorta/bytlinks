@@ -42,12 +42,14 @@ app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
 
 // SPA fallback — serve static assets, fall back to index.html for client-side routes
 app.all('*', async (c) => {
+  // With not_found_handling = "single-page-application" in wrangler.toml,
+  // ASSETS automatically serves index.html for missing paths.
+  // The manual fallback below is kept as a safety net.
   const res = await c.env.ASSETS.fetch(c.req.raw);
   if (res.status === 404) {
-    // Client-side route (e.g. /dashboard, /login, /:username) — serve SPA
     const url = new URL(c.req.url);
     url.pathname = '/index.html';
-    return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+    return c.env.ASSETS.fetch(new Request(url.toString(), { method: 'GET' }));
   }
   return res;
 });

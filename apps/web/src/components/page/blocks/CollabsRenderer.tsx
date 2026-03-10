@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { CollabsData, BioPage } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
@@ -63,11 +64,9 @@ export function CollabsRenderer({ block, pageId }: BlockRendererProps) {
           style={{ scrollbarWidth: 'none' }}
         >
           {displayProfiles.map((profile, i) => (
-            <a
+            <Link
               key={profile.username}
-              href={`/${profile.username}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              to={`/${profile.username}`}
               onClick={() => pageId && trackEvent(pageId, 'collab_click', { blockId: block.id })}
               className="flex flex-col items-center gap-1.5 shrink-0"
               style={{
@@ -97,7 +96,7 @@ export function CollabsRenderer({ block, pageId }: BlockRendererProps) {
               <span className="text-[11px] font-medium" style={{ color: 'var(--page-text)' }}>
                 @{profile.username}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
         {/* Fade edge when scrollable */}
