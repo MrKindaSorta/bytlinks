@@ -27,14 +27,26 @@ export type Env = {
   CREDENTIALS_ENCRYPTION_KEY?: string;
 };
 
+const ALLOWED_ORIGINS = ['https://www.bytlinks.com', 'https://bytlinks.com'];
+
 const app = new Hono<{ Bindings: Env }>();
+
+// Security headers on all API responses
+app.use('/api/*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+});
 
 app.use('/api/*', cors({
   origin: (origin, c) => {
     if (c.env.ENVIRONMENT === 'development') {
       return origin; // Allow any origin in dev
     }
-    return origin; // Same-origin in production, CORS headers harmless
+    return ALLOWED_ORIGINS.includes(origin) ? origin : '';
   },
   credentials: true,
 }));
@@ -75,6 +87,10 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     // Refresh live stats every 6 hours
     const { fetchLiveStat } = await import('./utils/liveStats');
+    const { cleanupRateLimits } = await import('./utils/rateLimit');
+
+    // Housekeeping: purge expired rate limit entries
+    try { await cleanupRateLimits(env.DB); } catch { /* non-critical */ }
 
     try {
       const blocks = await env.DB.prepare(

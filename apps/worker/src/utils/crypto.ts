@@ -60,6 +60,29 @@ export async function hashPassword(password: string): Promise<string> {
   return `${bufferToHex(salt.buffer)}:${bufferToHex(derivedBits)}`;
 }
 
+/** Constant-time comparison of two Uint8Arrays (prevents timing attacks). */
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+/** Constant-time comparison of two strings (prevents timing attacks). */
+export function timingSafeCompare(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  let diff = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    diff |= bufA[i] ^ bufB[i];
+  }
+  return diff === 0;
+}
+
 /**
  * Verify a password against a stored "salt:hash" string.
  */
@@ -92,7 +115,9 @@ export async function verifyPassword(
     KEY_LENGTH * 8,
   );
 
-  return bufferToHex(derivedBits) === hashHex;
+  const derived = new Uint8Array(derivedBits);
+  const expected = new Uint8Array(hexToBuffer(hashHex));
+  return timingSafeEqual(derived, expected);
 }
 
 interface JwtPayload {

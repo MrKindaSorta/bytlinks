@@ -2,25 +2,18 @@ import { Hono } from 'hono';
 import type { Env } from '../index';
 import { decryptCredential } from '../utils/crypto';
 import { syncToMailchimp, syncToConvertKit } from '../utils/emailProviders';
+import { checkRateLimit } from '../utils/rateLimit';
 import type { NewsletterData, FileDownloadData } from '@bytlinks/shared';
 import { getDownloadCount } from './analytics';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
-/** IP-based rate limiter for newsletter signups — 10 per IP per hour */
-const newsletterRateMap = new Map<string, { count: number; resetAt: number }>();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function checkNewsletterRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = newsletterRateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    newsletterRateMap.set(ip, { count: 1, resetAt: now + 3600_000 });
-    return true;
-  }
-  if (entry.count >= 10) return false;
-  entry.count++;
-  return true;
-}
+/** MIME types safe to serve inline (everything else is forced-download). */
+const INLINE_SAFE_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+]);
 
 /**
  * GET /api/public/avatar/:key+ — serve avatar from R2
@@ -50,15 +43,29 @@ publicRoutes.get('/avatar/*', async (c) => {
 publicRoutes.get('/file/*', async (c) => {
   const key = c.req.path.replace('/api/public/file/', '');
 
+  // Validate key format — must be a blocks/ or avatars/ path
+  if (!key.startsWith('blocks/') && !key.startsWith('avatars/')) {
+    return c.json({ success: false, error: 'Not found' }, 404);
+  }
+
   try {
     const object = await c.env.STORAGE.get(key);
     if (!object) {
       return c.json({ success: false, error: 'Not found' }, 404);
     }
 
+    const contentType = object.httpMetadata?.contentType || 'application/octet-stream';
     const headers = new Headers();
-    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
     headers.set('Cache-Control', 'public, max-age=86400');
+    headers.set('X-Content-Type-Options', 'nosniff');
+
+    // Only serve images inline; everything else is forced download
+    if (INLINE_SAFE_TYPES.has(contentType)) {
+      headers.set('Content-Type', contentType);
+    } else {
+      headers.set('Content-Type', 'application/octet-stream');
+      headers.set('Content-Disposition', 'attachment');
+    }
 
     return new Response(object.body, { headers });
   } catch {
@@ -160,14 +167,17 @@ publicRoutes.post('/poll/:blockId/vote', async (c) => {
  */
 publicRoutes.post('/newsletter/:blockId', async (c) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
-  if (!checkNewsletterRateLimit(ip)) {
-    return c.json({ success: false, error: 'Too many requests' }, 429);
+
+  // D1-backed rate limit: 10 signups per IP per hour
+  const allowed = await checkRateLimit(c.env.DB, `newsletter:${ip}`, 10, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many requests. Try again later.' }, 429);
   }
 
   const blockId = c.req.param('blockId');
   const body = await c.req.json<{ email: string }>();
 
-  if (!body.email || !body.email.includes('@')) {
+  if (!body.email || !EMAIL_RE.test(body.email)) {
     return c.json({ success: false, error: 'Valid email is required' }, 400);
   }
 
@@ -292,7 +302,7 @@ publicRoutes.post('/event/:blockId/rsvp', async (c) => {
   const blockId = c.req.param('blockId');
   const body = await c.req.json<{ name?: string; email: string }>();
 
-  if (!body.email || !body.email.includes('@')) {
+  if (!body.email || !EMAIL_RE.test(body.email)) {
     return c.json({ success: false, error: 'Valid email is required' }, 400);
   }
 

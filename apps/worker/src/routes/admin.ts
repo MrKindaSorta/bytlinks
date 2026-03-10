@@ -1,12 +1,22 @@
 import { Hono } from 'hono';
 import type { Env } from '../index';
+import { timingSafeCompare } from '../utils/crypto';
+import { checkRateLimit } from '../utils/rateLimit';
 
 export const adminRoutes = new Hono<{ Bindings: Env }>();
 
 /** Middleware: check X-Admin-Secret header against ADMIN_SECRET env var */
 adminRoutes.use('*', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit admin auth: 5 attempts per 15 minutes
+  const allowed = await checkRateLimit(c.env.DB, `admin:${ip}`, 5, 900);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many requests' }, 429);
+  }
+
   const secret = c.req.header('X-Admin-Secret');
-  if (!secret || secret !== c.env.ADMIN_SECRET) {
+  if (!secret || !timingSafeCompare(secret, c.env.ADMIN_SECRET)) {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
   await next();

@@ -3,8 +3,25 @@ import type { Env } from '../index';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
 import { BLOCK_LIMITS } from '@bytlinks/shared/constants';
 import { scrapeOg } from '../utils/ogScraper';
+import { isPrivateUrl } from '../utils/parsers';
 
 export const blockRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
+
+/** Allowlist of safe MIME types for file uploads. */
+const ALLOWED_UPLOAD_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+  'application/pdf',
+  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/flac', 'audio/mp4',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'application/zip', 'application/x-zip-compressed',
+  'application/octet-stream',
+]);
+
+/** Blocked file extensions that could execute in browsers. */
+const BLOCKED_EXTENSIONS = new Set([
+  'html', 'htm', 'xhtml', 'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
+  'svg', 'xml', 'xsl', 'php', 'asp', 'aspx', 'jsp', 'py', 'rb', 'sh', 'bat', 'cmd',
+]);
 
 blockRoutes.use('*', authMiddleware);
 
@@ -19,6 +36,11 @@ blockRoutes.get('/og', async (c) => {
     new URL(url); // validate
   } catch {
     return c.json({ success: false, error: 'Invalid URL' }, 400);
+  }
+
+  // SSRF protection — block internal/private URLs
+  if (isPrivateUrl(url)) {
+    return c.json({ success: false, error: 'URL not allowed' }, 400);
   }
 
   try {
@@ -37,6 +59,11 @@ blockRoutes.get('/oembed', async (c) => {
   if (!url) return c.json({ success: false, error: 'url param is required' }, 400);
 
   try { new URL(url); } catch { return c.json({ success: false, error: 'Invalid URL' }, 400); }
+
+  // SSRF protection
+  if (isPrivateUrl(url)) {
+    return c.json({ success: false, error: 'URL not allowed' }, 400);
+  }
 
   // Detect platform
   let platform: string | null = null;
@@ -408,7 +435,15 @@ blockRoutes.post('/upload', async (c) => {
       return c.json({ success: false, error: 'File must be under 10MB' }, 400);
     }
 
-    const ext = file.name.split('.').pop() || 'bin';
+    // Validate file type — block dangerous uploads
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      return c.json({ success: false, error: 'This file type is not allowed' }, 400);
+    }
+    if (!ALLOWED_UPLOAD_TYPES.has(file.type) && !file.type.startsWith('image/')) {
+      return c.json({ success: false, error: 'Unsupported file type' }, 400);
+    }
+
     const r2Key = `blocks/${user.id}/${crypto.randomUUID()}.${ext}`;
 
     await c.env.STORAGE.put(r2Key, file.stream(), {

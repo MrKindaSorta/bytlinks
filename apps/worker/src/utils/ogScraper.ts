@@ -1,4 +1,5 @@
 /** Lightweight OG metadata scraper for Cloudflare Workers (no DOM library). */
+import { isPrivateUrl } from './parsers';
 
 export interface OgMetadata {
   title: string | null;
@@ -28,6 +29,11 @@ function extractTitle(html: string): string | null {
 const cache = new Map<string, { data: OgMetadata; expiresAt: number }>();
 
 export async function scrapeOg(url: string): Promise<OgMetadata> {
+  // SSRF protection — block internal/private URLs
+  if (isPrivateUrl(url)) {
+    return { title: null, description: null, image: null, site_name: null };
+  }
+
   const cached = cache.get(url);
   if (cached && Date.now() < cached.expiresAt) return cached.data;
 

@@ -2,21 +2,36 @@ import { Hono } from 'hono';
 import type { Env } from '../index';
 import { hashPassword, verifyPassword, createJwt, verifyJwt } from '../utils/crypto';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
+import { checkRateLimit } from '../utils/rateLimit';
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
 const COOKIE_OPTIONS = 'HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * POST /api/auth/register
  * Body: { email, password, username }
  */
 authRoutes.post('/register', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit: 5 registration attempts per IP per hour
+  const allowed = await checkRateLimit(c.env.DB, `register:${ip}`, 5, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many registration attempts. Try again later.' }, 429);
+  }
+
   const body = await c.req.json<{ email?: string; password?: string; username?: string }>();
   const { email, password, username } = body;
 
   if (!email || !password || !username) {
     return c.json({ success: false, error: 'Email, password, and username are required' }, 400);
+  }
+
+  if (!EMAIL_RE.test(email)) {
+    return c.json({ success: false, error: 'Please enter a valid email address' }, 400);
   }
 
   if (password.length < 8) {
@@ -32,17 +47,15 @@ authRoutes.post('/register', async (c) => {
   }
 
   try {
-    const existingUser = await c.env.DB.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).bind(email).first();
+    const [existingUser, existingUsername] = await Promise.all([
+      c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first(),
+      c.env.DB.prepare('SELECT id FROM bio_pages WHERE username = ?').bind(username).first(),
+    ]);
 
+    // Generic message for email to prevent account enumeration
     if (existingUser) {
-      return c.json({ success: false, error: 'An account with this email already exists' }, 409);
+      return c.json({ success: false, error: 'Unable to create account. This email may already be registered.' }, 409);
     }
-
-    const existingUsername = await c.env.DB.prepare(
-      'SELECT id FROM bio_pages WHERE username = ?'
-    ).bind(username).first();
 
     if (existingUsername) {
       return c.json({ success: false, error: 'This username is already taken' }, 409);
@@ -93,6 +106,14 @@ authRoutes.post('/register', async (c) => {
  * Body: { email, password }
  */
 authRoutes.post('/login', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit: 10 login attempts per IP per 15 minutes
+  const allowed = await checkRateLimit(c.env.DB, `login:${ip}`, 10, 900);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many login attempts. Try again in 15 minutes.' }, 429);
+  }
+
   const body = await c.req.json<{ email?: string; password?: string }>();
   const { email, password } = body;
 
