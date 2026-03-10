@@ -9,6 +9,7 @@ export function BusinessCardTab() {
   const { user } = useAuth();
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
+  const [downloadToast, setDownloadToast] = useState(false);
 
   const username = page?.username ?? '';
   const pageUrl = `https://www.bytlinks.com/${username}`;
@@ -55,8 +56,17 @@ export function BusinessCardTab() {
         // User cancelled or share failed — fall through to direct link
       }
     }
-    // Fallback: open vcard URL directly (iOS Safari shows contact preview sheet)
-    window.open(vcardUrl, '_self');
+    // Fallback: platform-aware behavior
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      // iOS Safari shows a native contact preview sheet with inline disposition
+      window.open(vcardUrl + '?inline', '_self');
+    } else {
+      // Android/desktop: trigger download with attachment disposition
+      window.location.href = vcardUrl;
+      setDownloadToast(true);
+      setTimeout(() => setDownloadToast(false), 4000);
+    }
   }
 
   async function handleShare() {
@@ -236,6 +246,12 @@ export function BusinessCardTab() {
             {copied ? 'Copied!' : 'Share Link'}
           </button>
         </div>
+
+        {downloadToast && (
+          <p className="mt-3 text-center text-sm text-brand-text-secondary animate-in fade-in">
+            Contact downloaded — tap the notification to add to your contacts
+          </p>
+        )}
 
         {/* Tip */}
         <div className="mt-6 rounded-xl border border-brand-border bg-brand-surface-alt/50 p-4">

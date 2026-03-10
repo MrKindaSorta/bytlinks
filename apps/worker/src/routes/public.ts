@@ -425,10 +425,12 @@ publicRoutes.get('/:username/vcard', async (c) => {
 
     const vcf = lines.join('\r\n');
 
+    const disposition = c.req.query('inline') !== undefined ? 'inline' : 'attachment';
+
     return new Response(vcf, {
       headers: {
         'Content-Type': 'text/vcard; charset=utf-8',
-        'Content-Disposition': `inline; filename="${username}.vcf"`,
+        'Content-Disposition': `${disposition}; filename="${username}.vcf"`,
         'Cache-Control': 'no-cache',
       },
     });
