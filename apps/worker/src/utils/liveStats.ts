@@ -51,35 +51,53 @@ export async function fetchYouTubeSubscribers(
     return { error: 'YouTube API key not set in Worker environment' };
   }
 
-  // Try to extract channel ID
-  let channelId: string | null = null;
+  // Try /channel/ID format first
   const channelMatch = channelUrl.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/);
   if (channelMatch) {
-    channelId = channelMatch[1];
-  } else {
-    // Handle /@handle format
-    const handleMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/);
-    if (handleMatch) {
-      const searchRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(handleMatch[1])}&key=${apiKey}`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-      if (searchRes.ok) {
-        const searchData = await searchRes.json() as { items: { id: { channelId: string } }[] };
-        channelId = searchData.items?.[0]?.id?.channelId || null;
-      }
+    return fetchYouTubeByChannelId(channelMatch[1], apiKey);
+  }
+
+  // Handle /@handle format — use forHandle parameter (direct, no Search API needed)
+  const handleMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_.-]+)/);
+  if (handleMatch) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${encodeURIComponent(handleMatch[1])}&key=${apiKey}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return { error: 'Failed to fetch YouTube data' };
+    const data = await res.json() as { items?: { statistics: { subscriberCount: string } }[] };
+    const count = data.items?.[0]?.statistics?.subscriberCount;
+    if (!count) return { error: 'Channel not found for this handle' };
+    return { value: parseInt(count, 10).toLocaleString() };
+  }
+
+  // Handle /c/CustomName or /user/Username (legacy) — resolve via search
+  const customMatch = channelUrl.match(/youtube\.com\/(?:c\/|user\/)([a-zA-Z0-9_.-]+)/);
+  if (customMatch) {
+    const searchRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(customMatch[1])}&maxResults=1&key=${apiKey}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (searchRes.ok) {
+      const searchData = await searchRes.json() as { items?: { id: { channelId: string } }[] };
+      const channelId = searchData.items?.[0]?.id?.channelId;
+      if (channelId) return fetchYouTubeByChannelId(channelId, apiKey);
     }
   }
 
-  if (!channelId) return { error: 'Could not extract YouTube channel ID' };
+  return { error: 'Could not extract YouTube channel from URL. Use a youtube.com/@handle or /channel/ID link.' };
+}
 
+async function fetchYouTubeByChannelId(
+  channelId: string,
+  apiKey: string
+): Promise<{ value: string } | { error: string }> {
   const res = await fetch(
     `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`,
     { signal: AbortSignal.timeout(5000) }
   );
-
   if (!res.ok) return { error: 'Failed to fetch YouTube data' };
-  const data = await res.json() as { items: { statistics: { subscriberCount: string } }[] };
+  const data = await res.json() as { items?: { statistics: { subscriberCount: string } }[] };
   const count = data.items?.[0]?.statistics?.subscriberCount;
   if (!count) return { error: 'Channel not found' };
   return { value: parseInt(count, 10).toLocaleString() };
