@@ -60,20 +60,21 @@ export async function fetchYouTubeSubscribers(
   // Handle /@handle format — use forHandle parameter (direct, no Search API needed)
   const handleMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_.-]+)/);
   if (handleMatch) {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${encodeURIComponent(handleMatch[1])}&key=${apiKey}`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    if (!res.ok) return { error: 'Failed to fetch YouTube data' };
-    const data = await res.json() as { items?: { statistics: { subscriberCount: string } }[] };
-    const count = data.items?.[0]?.statistics?.subscriberCount;
-    if (!count) return { error: 'Channel not found for this handle' };
-    return { value: parseInt(count, 10).toLocaleString() };
+    return fetchYouTubeByParam('forHandle', handleMatch[1], apiKey);
   }
 
-  // Handle /c/CustomName or /user/Username (legacy) — resolve via search
-  const customMatch = channelUrl.match(/youtube\.com\/(?:c\/|user\/)([a-zA-Z0-9_.-]+)/);
+  // Handle /user/Username (legacy) — use forUsername parameter (1 quota unit)
+  const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_.-]+)/);
+  if (userMatch) {
+    return fetchYouTubeByParam('forUsername', userMatch[1], apiKey);
+  }
+
+  // Handle /c/CustomName — try forHandle first, fall back to search
+  const customMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_.-]+)/);
   if (customMatch) {
+    const handleResult = await fetchYouTubeByParam('forHandle', customMatch[1], apiKey);
+    if ('value' in handleResult) return handleResult;
+
     const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(customMatch[1])}&maxResults=1&key=${apiKey}`,
       { signal: AbortSignal.timeout(5000) }
@@ -88,6 +89,26 @@ export async function fetchYouTubeSubscribers(
   return { error: 'Could not extract YouTube channel from URL. Use a youtube.com/@handle or /channel/ID link.' };
 }
 
+async function fetchYouTubeByParam(
+  param: 'forHandle' | 'forUsername',
+  value: string,
+  apiKey: string
+): Promise<{ value: string } | { error: string }> {
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/channels?part=statistics&${param}=${encodeURIComponent(value)}&key=${apiKey}`,
+    { signal: AbortSignal.timeout(5000) }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const parsed = safeParseApiError(body);
+    return { error: parsed || `YouTube API error (${res.status})` };
+  }
+  const data = await res.json() as { items?: { statistics: { subscriberCount: string } }[] };
+  const count = data.items?.[0]?.statistics?.subscriberCount;
+  if (!count) return { error: 'Channel not found' };
+  return { value: parseInt(count, 10).toLocaleString() };
+}
+
 async function fetchYouTubeByChannelId(
   channelId: string,
   apiKey: string
@@ -96,11 +117,33 @@ async function fetchYouTubeByChannelId(
     `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`,
     { signal: AbortSignal.timeout(5000) }
   );
-  if (!res.ok) return { error: 'Failed to fetch YouTube data' };
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const parsed = safeParseApiError(body);
+    return { error: parsed || `YouTube API error (${res.status})` };
+  }
   const data = await res.json() as { items?: { statistics: { subscriberCount: string } }[] };
   const count = data.items?.[0]?.statistics?.subscriberCount;
   if (!count) return { error: 'Channel not found' };
   return { value: parseInt(count, 10).toLocaleString() };
+}
+
+/** Extract a human-readable message from a Google API JSON error body */
+function safeParseApiError(body: string): string | null {
+  try {
+    const json = JSON.parse(body) as { error?: { message?: string; errors?: { reason?: string }[] } };
+    const reason = json.error?.errors?.[0]?.reason;
+    const message = json.error?.message;
+    if (reason === 'accessNotConfigured' || message?.includes('has not been used') || message?.includes('not been enabled')) {
+      return 'YouTube Data API v3 is not enabled in your Google Cloud project. Enable it at console.cloud.google.com/apis';
+    }
+    if (reason === 'forbidden' || reason === 'quotaExceeded') {
+      return `YouTube API: ${message || reason}`;
+    }
+    return message || null;
+  } catch {
+    return null;
+  }
 }
 
 // NOTE: scrape-based, may break if Instagram changes their page structure
