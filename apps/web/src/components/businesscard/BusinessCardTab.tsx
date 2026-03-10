@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Download, Mail, Phone, Building2, MapPin, QrCode, Share2 } from 'lucide-react';
+import { UserRoundPlus, Mail, Phone, Building2, MapPin, QrCode, Share2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { usePage } from '../../hooks/usePage';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,11 +39,24 @@ export function BusinessCardTab() {
     renderQr();
   }, [renderQr]);
 
-  function handleDownloadVcard() {
-    const a = document.createElement('a');
-    a.href = vcardUrl;
-    a.download = `${username}.vcf`;
-    a.click();
+  async function handleAddToContacts() {
+    // Try Web Share API with .vcf file first (best on mobile — opens native share sheet)
+    if (navigator.canShare) {
+      try {
+        const testFile = new File([''], 'test.vcf', { type: 'text/vcard' });
+        if (navigator.canShare({ files: [testFile] })) {
+          const res = await fetch(vcardUrl);
+          const text = await res.text();
+          const file = new File([text], `${username}.vcf`, { type: 'text/vcard' });
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch {
+        // User cancelled or share failed — fall through to direct link
+      }
+    }
+    // Fallback: open vcard URL directly (iOS Safari shows contact preview sheet)
+    window.open(vcardUrl, '_self');
   }
 
   async function handleShare() {
@@ -205,13 +218,13 @@ export function BusinessCardTab() {
         {/* Action buttons */}
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
-            onClick={handleDownloadVcard}
+            onClick={handleAddToContacts}
             className="flex items-center justify-center gap-2 font-body text-sm font-semibold
                        px-4 py-3 rounded-xl bg-brand-accent text-white
                        transition-colors duration-fast hover:bg-brand-accent-hover"
           >
-            <Download className="w-4 h-4" />
-            Save Contact (.vcf)
+            <UserRoundPlus className="w-4 h-4" />
+            Add to Contacts
           </button>
           <button
             onClick={handleShare}
@@ -234,7 +247,7 @@ export function BusinessCardTab() {
               <strong className="text-brand-text">QR Code</strong> — Others scan it to open your BytLinks page instantly.
             </li>
             <li>
-              <strong className="text-brand-text">Save Contact</strong> — Downloads a .vcf file that adds you to their phone contacts.
+              <strong className="text-brand-text">Add to Contacts</strong> — Opens the native contact dialog on mobile, or downloads a .vcf file on desktop.
             </li>
             <li>
               <strong className="text-brand-text">Visibility toggles</strong> — Control what shows on your page vs. your card in the profile editor above.
