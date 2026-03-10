@@ -159,10 +159,20 @@ authRoutes.get('/me', async (c) => {
     return c.json({ success: false, error: 'Invalid or expired token' }, 401);
   }
 
+  // Look up verified status from DB
+  const dbUser = await c.env.DB.prepare(
+    'SELECT verified FROM users WHERE id = ?'
+  ).bind(payload.sub).first<{ verified: number }>();
+
   return c.json({
     success: true,
     data: {
-      user: { id: payload.sub, email: payload.email, plan: payload.plan },
+      user: {
+        id: payload.sub,
+        email: payload.email,
+        plan: payload.plan,
+        verified: !!(dbUser?.verified),
+      },
     },
   });
 });

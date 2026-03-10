@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, Settings, ExternalLink, LayoutDashboard } from 'lucide-react';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
 import { SettingsPanel } from '../components/settings/SettingsPanel';
 import { MyBytLink } from '../components/editor/MyBytLink';
+import { TemplatePicker } from '../components/templates/TemplatePicker';
+import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
 type DashboardTab = 'mybytlink' | 'analytics' | 'settings';
 
@@ -19,8 +21,21 @@ const TAB_ICONS = {
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('mybytlink');
   const { user, logout } = useAuth();
-  const { page } = usePage();
+  const { page, updatePage } = usePage();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showTemplates = searchParams.get('showTemplates') === 'true';
+
+  function handleTemplateApply(template: ProfileTemplate) {
+    if (!page) return;
+    const merged: Theme = { ...page.theme, ...template.theme } as Theme;
+    updatePage({ theme: merged }).catch(() => {});
+    setSearchParams({}, { replace: true });
+  }
+
+  function handleTemplateSkip() {
+    setSearchParams({}, { replace: true });
+  }
 
   async function handleLogout() {
     await logout();
@@ -35,6 +50,13 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen bg-brand-bg overflow-hidden">
+      {showTemplates && (
+        <TemplatePicker
+          fullscreen
+          onApply={handleTemplateApply}
+          onSkip={handleTemplateSkip}
+        />
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] h-full">
         {/* Sidebar — fixed, never scrolls */}
         <aside className="hidden lg:flex flex-col border-r border-brand-border bg-brand-surface px-4 py-6 h-full overflow-y-auto">

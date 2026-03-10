@@ -146,10 +146,15 @@ publicRoutes.get('/:username', async (c) => {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
 
-    const [links, socialLinks, embeds, blocks] = await Promise.all([
+    const now = Math.floor(Date.now() / 1000);
+
+    const [links, socialLinks, embeds, blocks, owner] = await Promise.all([
       c.env.DB.prepare(
-        'SELECT * FROM links WHERE page_id = ? AND is_visible = 1 ORDER BY order_num'
-      ).bind(page.id).all(),
+        `SELECT * FROM links WHERE page_id = ? AND is_visible = 1
+         AND (published_at IS NULL OR published_at <= ?)
+         AND (expires_at IS NULL OR expires_at > ?)
+         ORDER BY order_num`
+      ).bind(page.id, now, now).all(),
       c.env.DB.prepare(
         'SELECT * FROM social_links WHERE page_id = ? ORDER BY order_num'
       ).bind(page.id).all(),
@@ -159,6 +164,9 @@ publicRoutes.get('/:username', async (c) => {
       c.env.DB.prepare(
         'SELECT * FROM content_blocks WHERE page_id = ? AND is_visible = 1 ORDER BY created_at'
       ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT verified FROM users WHERE id = ?'
+      ).bind(page.user_id).first<{ verified: number }>(),
     ]);
 
     const sectionOrder = page.section_order
@@ -168,6 +176,7 @@ publicRoutes.get('/:username', async (c) => {
     return c.json({
       success: true,
       data: {
+        verified: !!(owner?.verified),
         page: { ...page, theme: JSON.parse(page.theme as string), section_order: sectionOrder },
         links: links.results.map((l: Record<string, unknown>) => ({
           ...l,

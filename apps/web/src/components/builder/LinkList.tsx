@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -12,6 +13,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { Download } from 'lucide-react';
 import { useLinks } from '../../hooks/useLinks';
 import { usePage } from '../../hooks/usePage';
 import { usePageStore } from '../../store/pageStore';
@@ -19,10 +21,12 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { LinkCard } from './LinkCard';
 import { AddLinkForm } from './AddLinkForm';
 import { ButtonStylePicker } from './ButtonStylePicker';
+import { ImportLinksModal } from './ImportLinksModal';
 import type { Theme, ButtonStyle } from '@bytlinks/shared';
 
 export function LinkList() {
-  const { links, isLoading, saveOrder } = useLinks();
+  const { links, isLoading, saveOrder, fetchLinks } = useLinks();
+  const [showImport, setShowImport] = useState(false);
   const { page, updatePage } = usePage();
   const theme = page?.theme ?? null;
 
@@ -80,7 +84,25 @@ export function LinkList() {
           />
         </div>
       )}
-      <AddLinkForm />
+      <div className="flex gap-2">
+        <div className="flex-1"><AddLinkForm /></div>
+        <button
+          onClick={() => setShowImport(true)}
+          className="flex items-center gap-1.5 font-body text-xs font-medium px-3 py-2 rounded-lg
+                     border border-brand-border text-brand-text-secondary
+                     hover:bg-brand-surface-alt transition-colors whitespace-nowrap self-end"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Import
+        </button>
+      </div>
+
+      {showImport && (
+        <ImportLinksModal
+          onClose={() => setShowImport(false)}
+          onImported={() => fetchLinks()}
+        />
+      )}
 
       {links.length === 0 ? (
         <div className="rounded-xl border border-brand-border bg-brand-surface p-8 text-center">

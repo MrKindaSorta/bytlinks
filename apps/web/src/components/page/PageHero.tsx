@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, BadgeCheck } from 'lucide-react';
 import type { BioPage, LayoutVariant } from '@bytlinks/shared';
 import { AvatarLightbox } from './AvatarLightbox';
 
@@ -9,13 +9,15 @@ interface PageHeroProps {
   layoutVariant?: LayoutVariant;
   /** When true, renders a plain image instead of clickable AvatarLightbox (for previews). */
   disableLightbox?: boolean;
+  /** Show verified badge next to display name */
+  verified?: boolean;
 }
 
 /**
  * Avatar + display name + bio + about me.
  * Social icons are rendered directly below the hero.
  */
-export function PageHero({ page, username, layoutVariant = 'centered', disableLightbox }: PageHeroProps) {
+export function PageHero({ page, username, layoutVariant = 'centered', disableLightbox, verified }: PageHeroProps) {
   const avatarUrl = page.avatar_r2_key
     ? `/api/public/avatar/${page.avatar_r2_key}`
     : null;
@@ -46,7 +48,16 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
       className="text-3xl font-900 tracking-[-0.04em] leading-[1.05] mb-2"
       style={{ fontFamily: 'var(--page-font-display)' }}
     >
-      {page.display_name}
+      <span className="inline-flex items-center gap-1.5">
+        {page.display_name}
+        {verified && (
+          <BadgeCheck
+            className="w-6 h-6 inline-block flex-shrink-0"
+            style={{ color: 'var(--page-accent, #0d9488)' }}
+            aria-label="Verified"
+          />
+        )}
+      </span>
     </h1>
   );
 

@@ -182,6 +182,17 @@ export interface User {
   id: string;
   email: string;
   plan: UserPlan;
+  verified: boolean;
+  verified_at: number | null;
+  created_at: number;
+}
+
+export interface VerificationRequest {
+  id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason: string | null;
+  reviewed_at: number | null;
   created_at: number;
 }
 
@@ -225,6 +236,8 @@ export interface Link {
   order_num: number;
   click_count: number;
   style_overrides?: LinkStyleOverride | null;
+  published_at: number | null;
+  expires_at: number | null;
   created_at: number;
 }
 
@@ -505,6 +518,15 @@ export interface AnalyticsEvent {
   os: string | null;
   session_id: string | null;
   timestamp: number;
+}
+
+/** Profile template definition for starter kits */
+export interface ProfileTemplate {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  theme: Partial<Theme>;
 }
 
 /** API response wrapper */

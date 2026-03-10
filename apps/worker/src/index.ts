@@ -8,6 +8,9 @@ import { publicRoutes } from './routes/public';
 import { socialRoutes } from './routes/socials';
 import { billingRoutes } from './routes/billing';
 import { blockRoutes } from './routes/blocks';
+import { adminRoutes } from './routes/admin';
+import { verificationRoutes } from './routes/verification';
+import { importRoutes } from './routes/import';
 
 export type Env = {
   DB: D1Database;
@@ -15,6 +18,7 @@ export type Env = {
   ASSETS: Fetcher;
   JWT_SECRET: string;
   ENVIRONMENT: string;
+  ADMIN_SECRET: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -36,6 +40,9 @@ app.route('/api/analytics', analyticsRoutes);
 app.route('/api/socials', socialRoutes);
 app.route('/api/billing', billingRoutes);
 app.route('/api/blocks', blockRoutes);
+app.route('/api/admin', adminRoutes);
+app.route('/api/verification', verificationRoutes);
+app.route('/api/import', importRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));

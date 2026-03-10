@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { usePage } from '../../hooks/usePage';
 import { Crown, Check } from 'lucide-react';
+import { QrCodeSection } from './QrCodeSection';
+import { VerificationSection } from './VerificationSection';
 
 interface BillingStatus {
   plan: string;
@@ -11,6 +14,7 @@ interface BillingStatus {
 
 export function SettingsPanel() {
   const { user } = useAuth();
+  const { page } = usePage();
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
@@ -89,6 +93,12 @@ export function SettingsPanel() {
           </div>
         </div>
       </section>
+
+      {/* QR Code */}
+      {page?.username && <QrCodeSection username={page.username} />}
+
+      {/* Verification */}
+      <VerificationSection />
 
       {/* Plan / Upgrade */}
       {loading ? (

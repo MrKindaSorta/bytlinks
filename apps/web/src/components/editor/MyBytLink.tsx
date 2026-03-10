@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Camera, Users, Pencil, Plus, Eye, EyeOff, Star, Trash2, GripVertical, Smartphone, Monitor, ChevronDown, ChevronRight, Palette, Layers } from 'lucide-react';
+import { Camera, Users, Pencil, Plus, Eye, EyeOff, Star, Trash2, GripVertical, Smartphone, Monitor, ChevronDown, ChevronRight, Palette, Layers, Clock, CalendarClock, Crown } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type {
@@ -28,6 +28,7 @@ import type {
 } from '@bytlinks/shared';
 import { BLOCK_TYPE_META, FULL_WIDTH_BLOCKS, resolveBlockColumnSpan } from '@bytlinks/shared/constants';
 import { usePage } from '../../hooks/usePage';
+import { useAuth } from '../../hooks/useAuth';
 import { useLinks } from '../../hooks/useLinks';
 import { useBlocks } from '../../hooks/useBlocks';
 import { useUpload } from '../../hooks/useUpload';
@@ -1430,6 +1431,11 @@ function SortableLinkWrapper({
   const iconPosition = link.style_overrides?.iconPosition ?? 'left';
   const hasIcon = !!iconName;
 
+  const now = Math.floor(Date.now() / 1000);
+  const isScheduled = link.published_at != null && link.published_at > now;
+  const isExpiring = link.expires_at != null && link.expires_at > now;
+  const isExpired = link.expires_at != null && link.expires_at <= now;
+
   let content: React.ReactNode = <span>{link.title}</span>;
   if (hasIcon) {
     content = (
@@ -1522,6 +1528,29 @@ function SortableLinkWrapper({
         {/* Mobile interaction shield — taps select instead of following link */}
         <div className="absolute inset-0 z-10 lg:hidden" aria-hidden="true" />
       </div>
+
+      {/* Scheduling indicators */}
+      {(isScheduled || isExpiring || isExpired) && (
+        <div className="flex items-center gap-2 mt-1 px-2">
+          {isScheduled && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600"
+                  title={`Publishes ${new Date((link.published_at ?? 0) * 1000).toLocaleString()}`}>
+              <Clock className="w-3 h-3" /> Scheduled
+            </span>
+          )}
+          {isExpiring && !isExpired && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-text-muted"
+                  title={`Expires ${new Date((link.expires_at ?? 0) * 1000).toLocaleString()}`}>
+              <CalendarClock className="w-3 h-3" /> Expires {new Date((link.expires_at ?? 0) * 1000).toLocaleDateString()}
+            </span>
+          )}
+          {isExpired && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-500">
+              Expired
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1601,17 +1630,34 @@ function resolveThemeColors(theme: Theme): ThemeColorContext {
   return STYLE_COLORS[theme.base];
 }
 
+function epochToLocalDatetime(epoch: number | null): string {
+  if (!epoch) return '';
+  const d = new Date(epoch * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localDatetimeToEpoch(value: string): number | null {
+  if (!value) return null;
+  return Math.floor(new Date(value).getTime() / 1000);
+}
+
 function LinkEditorContent({ link, onClose, theme }: { link: LinkType; onClose: () => void; theme: Theme }) {
   const { editLink, deleteLink } = useLinks();
+  const { user } = useAuth();
   const [title, setTitle] = useState(link.title);
   const [url, setUrl] = useState(link.url);
+  const [publishedAt, setPublishedAt] = useState(link.published_at);
+  const [expiresAt, setExpiresAt] = useState(link.expires_at);
   const [saving, setSaving] = useState(false);
   const [showStyler, setShowStyler] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const isPro = user?.plan === 'pro';
 
   async function handleSave() {
     setSaving(true);
     try {
-      await editLink(link.id, { title, url });
+      await editLink(link.id, { title, url, published_at: publishedAt, expires_at: expiresAt } as Partial<LinkType>);
       onClose();
     } catch {
       // silent
@@ -1670,6 +1716,69 @@ function LinkEditorContent({ link, onClose, theme }: { link: LinkType; onClose: 
         >
           Delete
         </button>
+      </div>
+
+      {/* Schedule section */}
+      <div className="border-t border-brand-border pt-4">
+        <button
+          onClick={() => setShowSchedule(!showSchedule)}
+          className="flex items-center gap-2 w-full text-left font-body text-sm font-medium text-brand-text
+                     px-3 py-2 rounded-lg transition-colors duration-150 hover:bg-brand-surface-alt"
+        >
+          <Clock className="w-4 h-4 text-brand-accent" />
+          <span className="flex-1">Schedule</span>
+          {!isPro && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+              <Crown className="w-3 h-3" /> Pro
+            </span>
+          )}
+          <ChevronRight
+            className={`w-3.5 h-3.5 text-brand-text-muted transition-transform duration-200
+                       ${showSchedule ? 'rotate-90' : ''}`}
+          />
+        </button>
+        {showSchedule && (
+          <div className={`mt-3 space-y-3 ${!isPro ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div>
+              <label className="block font-body text-xs font-medium text-brand-text-muted mb-1">Publish date</label>
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={epochToLocalDatetime(publishedAt)}
+                  onChange={(e) => setPublishedAt(localDatetimeToEpoch(e.target.value))}
+                  className="flex-1 font-body text-sm px-2.5 py-1.5 rounded-lg border border-brand-border
+                             bg-brand-surface text-brand-text
+                             focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                />
+                {publishedAt && (
+                  <button
+                    onClick={() => setPublishedAt(null)}
+                    className="font-body text-xs text-brand-text-muted hover:text-brand-text"
+                  >Clear</button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block font-body text-xs font-medium text-brand-text-muted mb-1">Expiry date</label>
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={epochToLocalDatetime(expiresAt)}
+                  onChange={(e) => setExpiresAt(localDatetimeToEpoch(e.target.value))}
+                  className="flex-1 font-body text-sm px-2.5 py-1.5 rounded-lg border border-brand-border
+                             bg-brand-surface text-brand-text
+                             focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                />
+                {expiresAt && (
+                  <button
+                    onClick={() => setExpiresAt(null)}
+                    className="font-body text-xs text-brand-text-muted hover:text-brand-text"
+                  >Clear</button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Button style customization toggle */}

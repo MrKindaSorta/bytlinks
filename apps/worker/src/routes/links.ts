@@ -52,6 +52,8 @@ linkRoutes.post('/', async (c) => {
     description?: string;
     icon?: string;
     is_featured?: boolean;
+    published_at?: number | null;
+    expires_at?: number | null;
   }>();
 
   if (!body.title || !body.url) {
@@ -60,6 +62,11 @@ linkRoutes.post('/', async (c) => {
 
   if (isBlockedUrl(body.url)) {
     return c.json({ success: false, error: NSFW_ERROR_MESSAGE }, 400);
+  }
+
+  // Plan-gate scheduling
+  if ((body.published_at != null || body.expires_at != null) && user.plan === 'free') {
+    return c.json({ success: false, error: 'Scheduling requires Pro plan.' }, 403);
   }
 
   try {
@@ -74,12 +81,13 @@ linkRoutes.post('/', async (c) => {
     const orderNum = (maxOrder?.max_order ?? -1) + 1;
 
     await c.env.DB.prepare(
-      `INSERT INTO links (id, page_id, title, url, description, icon, is_featured, order_num)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO links (id, page_id, title, url, description, icon, is_featured, order_num, published_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       linkId, pageId, body.title, body.url,
       body.description ?? null, body.icon ?? null,
       body.is_featured ? 1 : 0, orderNum,
+      body.published_at ?? null, body.expires_at ?? null,
     ).run();
 
     return c.json({
@@ -89,6 +97,8 @@ linkRoutes.post('/', async (c) => {
         description: body.description ?? null, icon: body.icon ?? null,
         is_featured: !!body.is_featured, is_visible: true,
         order_num: orderNum, click_count: 0,
+        published_at: body.published_at ?? null,
+        expires_at: body.expires_at ?? null,
       },
     }, 201);
   } catch {
@@ -141,10 +151,17 @@ linkRoutes.put('/:id', async (c) => {
     is_visible?: boolean;
     order_num?: number;
     style_overrides?: Record<string, unknown> | null;
+    published_at?: number | null;
+    expires_at?: number | null;
   }>();
 
   if (body.url && isBlockedUrl(body.url)) {
     return c.json({ success: false, error: NSFW_ERROR_MESSAGE }, 400);
+  }
+
+  // Plan-gate scheduling
+  if ((body.published_at !== undefined || body.expires_at !== undefined) && user.plan === 'free') {
+    return c.json({ success: false, error: 'Scheduling requires Pro plan.' }, 403);
   }
 
   try {
@@ -173,6 +190,8 @@ linkRoutes.put('/:id', async (c) => {
       updates.push('style_overrides = ?');
       values.push(body.style_overrides ? JSON.stringify(body.style_overrides) : null);
     }
+    if (body.published_at !== undefined) { updates.push('published_at = ?'); values.push(body.published_at); }
+    if (body.expires_at !== undefined) { updates.push('expires_at = ?'); values.push(body.expires_at); }
 
     if (updates.length === 0) {
       return c.json({ success: false, error: 'No fields to update' }, 400);

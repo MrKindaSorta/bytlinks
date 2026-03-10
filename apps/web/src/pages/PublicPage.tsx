@@ -20,6 +20,7 @@ interface PageData {
   socialLinks: SocialLink[];
   embeds: EmbedBlock[];
   blocks: ContentBlock[];
+  verified?: boolean;
 }
 
 /** Fire a page_view analytics event (fire-and-forget). */
@@ -150,8 +151,8 @@ export default function PublicPage() {
     ? <PageSocials socialLinks={socialLinks} layoutVariant={desktopLayout} pageId={page.id} />
     : null;
 
-  const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} />;
-  const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} />;
+  const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} verified={data.verified} />;
+  const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} verified={data.verified} />;
 
   const desktopIsSplit = desktopLayout !== 'centered';
   const desktopIsLeft = desktopLayout === 'left-photo';

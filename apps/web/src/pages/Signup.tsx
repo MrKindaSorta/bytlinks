@@ -19,7 +19,7 @@ export default function Signup() {
 
     try {
       await signup(email, password, username);
-      navigate('/dashboard');
+      navigate('/dashboard?showTemplates=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
     } finally {
