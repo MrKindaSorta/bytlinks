@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../index';
 import { hashPassword, verifyPassword, createJwt, verifyJwt } from '../utils/crypto';
-import type { AuthUser } from '../middleware/auth';
+import { authMiddleware, type AuthUser } from '../middleware/auth';
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
@@ -175,4 +175,84 @@ authRoutes.get('/me', async (c) => {
       },
     },
   });
+});
+
+/**
+ * DELETE /api/auth/account
+ * Permanently deletes the user's account and all associated data.
+ * Requires password confirmation and the confirmation phrase "DELETE MY ACCOUNT".
+ */
+authRoutes.delete('/account', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json<{ password?: string; confirmation?: string }>();
+
+  if (!body.password) {
+    return c.json({ success: false, error: 'Password is required' }, 400);
+  }
+
+  if (body.confirmation !== 'DELETE MY ACCOUNT') {
+    return c.json({ success: false, error: 'Confirmation phrase does not match' }, 400);
+  }
+
+  try {
+    // Verify password before proceeding
+    const dbUser = await c.env.DB.prepare(
+      'SELECT password_hash FROM users WHERE id = ?'
+    ).bind(user.id).first<{ password_hash: string }>();
+
+    if (!dbUser) {
+      return c.json({ success: false, error: 'User not found' }, 404);
+    }
+
+    const valid = await verifyPassword(body.password, dbUser.password_hash);
+    if (!valid) {
+      return c.json({ success: false, error: 'Incorrect password' }, 401);
+    }
+
+    // Get page IDs to clean up R2 storage
+    const pages = await c.env.DB.prepare(
+      'SELECT id, avatar_r2_key FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).all<{ id: string; avatar_r2_key: string | null }>();
+
+    // Delete R2 objects (avatar + block files) — best effort
+    const r2Deletes: Promise<void>[] = [];
+    for (const page of pages.results) {
+      if (page.avatar_r2_key) {
+        r2Deletes.push(c.env.STORAGE.delete(page.avatar_r2_key));
+      }
+    }
+    // Clean up any block file uploads
+    const blockFiles = await c.env.DB.prepare(
+      `SELECT data FROM content_blocks WHERE page_id IN
+       (SELECT id FROM bio_pages WHERE user_id = ?)`
+    ).bind(user.id).all<{ data: string }>();
+    for (const row of blockFiles.results) {
+      try {
+        const data = JSON.parse(row.data);
+        if (data.r2_key) r2Deletes.push(c.env.STORAGE.delete(data.r2_key));
+        if (data.image_r2_key) r2Deletes.push(c.env.STORAGE.delete(data.image_r2_key));
+        if (Array.isArray(data.images)) {
+          for (const img of data.images) {
+            if (img.r2_key) r2Deletes.push(c.env.STORAGE.delete(img.r2_key));
+          }
+        }
+      } catch { /* skip unparseable */ }
+    }
+    await Promise.allSettled(r2Deletes);
+
+    // Delete user — CASCADE handles bio_pages, links, social_links, content_blocks, etc.
+    await c.env.DB.batch([
+      c.env.DB.prepare('DELETE FROM verification_requests WHERE user_id = ?').bind(user.id),
+      c.env.DB.prepare('DELETE FROM import_rate_limits WHERE user_id = ?').bind(user.id),
+      c.env.DB.prepare('DELETE FROM analytics_events WHERE page_id IN (SELECT id FROM bio_pages WHERE user_id = ?)').bind(user.id),
+      c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
+    ]);
+
+    // Clear auth cookie
+    c.header('Set-Cookie', 'token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to delete account' }, 500);
+  }
 });
