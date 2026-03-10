@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Trash2, Image } from 'lucide-react';
+import { Upload, Trash2, Image, Globe } from 'lucide-react';
 import { useBlocks } from '../../../hooks/useBlocks';
 import type { BlockEditorProps } from './blockEditorRegistry';
 import type { RichLinkData } from '@bytlinks/shared';
@@ -13,6 +13,26 @@ export function RichLinkEditor({ block }: BlockEditorProps) {
   const [imageKey, setImageKey] = useState(data.image_r2_key || '');
   const [uploading, setUploading] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  async function fetchOg() {
+    if (!url || fetching) return;
+    setFetching(true);
+    try {
+      const res = await fetch(`/api/blocks/og?url=${encodeURIComponent(url)}`, { credentials: 'include' });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const og = json.data as { title: string | null; description: string | null; image: string | null };
+        if (og.title) editBlock(block.id, { title: og.title });
+        if (og.description) setDescription(og.description);
+        save({ description: og.description || description });
+      }
+    } catch {
+      // silent
+    } finally {
+      setFetching(false);
+    }
+  }
 
   function save(updates: Partial<RichLinkData>) {
     editBlock(block.id, { data: { ...data, url, description, image_r2_key: imageKey, ...updates } });
@@ -46,14 +66,27 @@ export function RichLinkEditor({ block }: BlockEditorProps) {
 
   return (
     <div className="space-y-3">
-      <input
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        onBlur={() => save({ url })}
-        placeholder="https://example.com"
-        className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
-      />
+      <div className="flex gap-2">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => save({ url })}
+          placeholder="https://example.com"
+          className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+        />
+        <button
+          onClick={fetchOg}
+          disabled={!url || fetching}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand-border font-body text-xs font-medium text-brand-text-muted
+                     hover:border-brand-accent hover:text-brand-accent transition-colors duration-150
+                     disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Auto-fill title & description from URL"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          {fetching ? '...' : 'Fetch'}
+        </button>
+      </div>
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}

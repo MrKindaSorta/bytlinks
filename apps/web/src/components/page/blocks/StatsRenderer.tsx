@@ -19,10 +19,10 @@ function AnimatedNumber({ value, animate }: { value: string; animate: boolean })
   const parsed = parseStatValue(value);
   const shouldAnimate = animate && parsed && isNumeric(parsed.number);
   const [display, setDisplay] = useState(shouldAnimate ? `${parsed!.prefix}0${parsed!.suffix}` : value);
-  const hasAnimated = useRef(false);
+  const animatingRef = useRef(false);
 
   useEffect(() => {
-    if (!shouldAnimate || hasAnimated.current || !ref.current || !parsed) {
+    if (!shouldAnimate || !ref.current || !parsed) {
       setDisplay(value);
       return;
     }
@@ -39,31 +39,36 @@ function AnimatedNumber({ value, animate }: { value: string; animate: boolean })
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || hasAnimated.current) return;
-        hasAnimated.current = true;
-        observer.disconnect();
+        if (entry.isIntersecting && !animatingRef.current) {
+          // Start animation when entering viewport
+          animatingRef.current = true;
+          const duration = 1200;
+          const start = performance.now();
 
-        const duration = 1200;
-        const start = performance.now();
+          function tick(now: number) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = target * eased;
 
-        function tick(now: number) {
-          const elapsed = now - start;
-          const progress = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          const current = target * eased;
+            let formatted = decimals > 0 ? current.toFixed(decimals) : Math.round(current).toString();
+            if (hasCommas) {
+              const parts = formatted.split('.');
+              parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+              formatted = parts.join('.');
+            }
 
-          let formatted = decimals > 0 ? current.toFixed(decimals) : Math.round(current).toString();
-          if (hasCommas) {
-            const parts = formatted.split('.');
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            formatted = parts.join('.');
+            setDisplay(`${parsed!.prefix}${formatted}${parsed!.suffix}`);
+            if (progress < 1) requestAnimationFrame(tick);
+            else animatingRef.current = false;
           }
 
-          setDisplay(`${parsed!.prefix}${formatted}${parsed!.suffix}`);
-          if (progress < 1) requestAnimationFrame(tick);
+          requestAnimationFrame(tick);
+        } else if (!entry.isIntersecting) {
+          // Reset to zero when leaving viewport so it re-animates on return
+          animatingRef.current = false;
+          setDisplay(`${parsed!.prefix}0${parsed!.suffix}`);
         }
-
-        requestAnimationFrame(tick);
       },
       { threshold: 0.3 }
     );
@@ -86,7 +91,7 @@ export function StatsRenderer({ block, pageId }: BlockRendererProps) {
         ([entry]) => {
           if (entry.isIntersecting && !trackedRef.current) {
             trackedRef.current = true;
-            trackEvent(pageId, 'stats_view' as never, { blockId: block.id });
+            trackEvent(pageId, 'stats_view', { blockId: block.id });
             observer.disconnect();
           }
         },

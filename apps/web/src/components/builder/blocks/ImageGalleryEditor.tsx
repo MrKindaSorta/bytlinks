@@ -5,6 +5,8 @@ import type { BlockEditorProps } from './blockEditorRegistry';
 import type { ImageGalleryData, GalleryImage } from '@bytlinks/shared';
 import { ImageCropEditor, CROP_FLEXIBLE } from '../../shared/ImageCropEditor';
 
+const MAX_IMAGES = 20;
+
 const LAYOUTS = [
   { key: 'single', label: 'Single' },
   { key: 'carousel', label: 'Carousel' },
@@ -17,6 +19,7 @@ export function ImageGalleryEditor({ block }: BlockEditorProps) {
   const [layout, setLayout] = useState<ImageGalleryData['layout']>(data.layout || 'single');
   const [images, setImages] = useState<GalleryImage[]>(data.images || []);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
 
   function save(updates: Partial<ImageGalleryData>) {
@@ -27,10 +30,42 @@ export function ImageGalleryEditor({ block }: BlockEditorProps) {
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    setCropFile(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     e.target.value = '';
+
+    if (files.length === 1) {
+      // Single file — use crop editor
+      const file = files[0];
+      if (!file.type.startsWith('image/')) return;
+      setCropFile(file);
+    } else {
+      // Multiple files — bulk upload (skip cropping for convenience)
+      handleBulkUpload(Array.from(files).filter((f) => f.type.startsWith('image/')));
+    }
+  }
+
+  async function handleBulkUpload(files: File[]) {
+    const remaining = MAX_IMAGES - images.length;
+    const toUpload = files.slice(0, remaining);
+    if (toUpload.length === 0) return;
+
+    setUploading(true);
+    const newImages = [...images];
+
+    for (let i = 0; i < toUpload.length; i++) {
+      setUploadProgress(`${i + 1}/${toUpload.length}`);
+      try {
+        const result = await uploadFile(toUpload[i]);
+        newImages.push({ r2_key: result.r2_key });
+      } catch {
+        // skip failed uploads
+      }
+    }
+
+    save({ images: newImages });
+    setUploading(false);
+    setUploadProgress('');
   }
 
   async function handleCropConfirm(croppedFile: File) {
@@ -67,6 +102,8 @@ export function ImageGalleryEditor({ block }: BlockEditorProps) {
     save({ images: newImages });
   }
 
+  const atLimit = images.length >= MAX_IMAGES;
+
   return (
     <div className="space-y-3">
       <div className="flex gap-1.5">
@@ -83,6 +120,9 @@ export function ImageGalleryEditor({ block }: BlockEditorProps) {
             {l.label}
           </button>
         ))}
+        <span className="ml-auto font-body text-[10px] text-brand-text-muted self-center">
+          {images.length}/{MAX_IMAGES}
+        </span>
       </div>
       <div className="space-y-2">
         {images.map((img, i) => (
@@ -125,13 +165,20 @@ export function ImageGalleryEditor({ block }: BlockEditorProps) {
           </div>
         ))}
       </div>
-      <label className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-brand-border py-3 cursor-pointer hover:border-brand-accent transition-colors duration-150">
-        <Upload className="w-4 h-4 text-brand-text-muted" />
-        <span className="font-body text-xs text-brand-text-muted">
-          {uploading ? 'Uploading...' : 'Add image'}
-        </span>
-        <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" disabled={uploading} />
-      </label>
+      {!atLimit && (
+        <label className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-brand-border py-3 cursor-pointer hover:border-brand-accent transition-colors duration-150">
+          <Upload className="w-4 h-4 text-brand-text-muted" />
+          <span className="font-body text-xs text-brand-text-muted">
+            {uploading ? `Uploading ${uploadProgress}...` : 'Add images (select multiple)'}
+          </span>
+          <input type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" disabled={uploading} />
+        </label>
+      )}
+      {atLimit && (
+        <p className="font-body text-[11px] text-brand-text-muted text-center">
+          Maximum {MAX_IMAGES} images reached
+        </p>
+      )}
       {cropFile && (
         <ImageCropEditor
           file={cropFile}

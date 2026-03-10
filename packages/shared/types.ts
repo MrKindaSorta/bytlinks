@@ -267,7 +267,7 @@ export interface SocialLink {
   order_num: number;
 }
 
-export type EmbedType = 'youtube' | 'spotify' | 'tweet' | 'substack';
+export type EmbedType = 'youtube' | 'spotify' | 'soundcloud' | 'vimeo' | 'apple-music' | 'tweet' | 'substack';
 
 export interface EmbedBlock {
   id: string;

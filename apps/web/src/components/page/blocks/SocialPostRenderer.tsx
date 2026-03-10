@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { SocialPostData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
@@ -73,6 +73,7 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as SocialPostData;
   const containerRef = useRef<HTMLDivElement>(null);
   const trackedRef = useRef(false);
+  const [twitterLoaded, setTwitterLoaded] = useState(false);
 
   function handleClick() {
     if (trackedRef.current || !pageId) return;
@@ -93,6 +94,19 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
       } else if (window.twttr?.widgets?.load) {
         window.twttr.widgets.load(containerRef.current);
       }
+
+      // Detect when Twitter widget iframe appears
+      const container = containerRef.current;
+      const observer = new MutationObserver(() => {
+        if (container.querySelector('iframe.twitter-tweet-rendered, .twitter-tweet iframe')) {
+          setTwitterLoaded(true);
+          observer.disconnect();
+        }
+      });
+      observer.observe(container, { childList: true, subtree: true });
+      // Fallback timeout
+      const timeout = setTimeout(() => { setTwitterLoaded(true); observer.disconnect(); }, 4000);
+      return () => { observer.disconnect(); clearTimeout(timeout); };
     }
   }, [data.post_url, data.platform]);
 
@@ -101,7 +115,13 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
   if (data.platform === 'twitter') {
     const theme = detectTheme();
     return (
-      <div className="scroll-reveal my-6" ref={containerRef} onClick={handleClick}>
+      <div className="scroll-reveal my-6 relative" ref={containerRef} onClick={handleClick} style={{ minHeight: twitterLoaded ? undefined : 250 }}>
+        {!twitterLoaded && (
+          <div
+            className="absolute inset-0 rounded-xl animate-pulse"
+            style={{ background: 'var(--page-surface-alt, rgba(128,128,128,0.08))' }}
+          />
+        )}
         <blockquote className="twitter-tweet" data-theme={theme}>
           <a href={data.post_url}>{data.fallback_text || 'Loading tweet...'}</a>
         </blockquote>

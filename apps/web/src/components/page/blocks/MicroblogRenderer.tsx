@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { MicroblogData } from '@bytlinks/shared';
+import { trackEvent } from '../../../utils/trackEvent';
 
 function formatTimeAgo(timestamp: number): string {
   const diff = Math.floor(Date.now() / 1000) - timestamp;
@@ -13,7 +14,7 @@ function formatTimeAgo(timestamp: number): string {
 
 const INITIAL_SHOW = 5;
 
-export function MicroblogRenderer({ block }: BlockRendererProps) {
+export function MicroblogRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as MicroblogData;
   const [showAll, setShowAll] = useState(false);
 
@@ -54,7 +55,10 @@ export function MicroblogRenderer({ block }: BlockRendererProps) {
       </div>
       {hasMore && !showAll && (
         <button
-          onClick={() => setShowAll(true)}
+          onClick={() => {
+            setShowAll(true);
+            if (pageId) trackEvent(pageId, 'microblog_expand', { blockId: block.id });
+          }}
           className="w-full py-2.5 text-xs font-medium rounded-b-xl transition-colors duration-200"
           style={{
             background: 'var(--page-surface-alt, rgba(128,128,128,0.05))',

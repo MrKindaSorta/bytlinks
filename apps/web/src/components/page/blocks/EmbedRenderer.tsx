@@ -1,27 +1,31 @@
 import { useRef, useState } from 'react';
 import type { BlockRendererProps } from './blockRendererRegistry';
-import type { EmbedBlockData, EmbedType } from '@bytlinks/shared';
+import type { EmbedBlockData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
-
-function getEmbedSrc(embedType: EmbedType, url: string): string | null {
-  switch (embedType) {
-    case 'youtube': {
-      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-      return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : null;
-    }
-    case 'spotify': {
-      const match = url.match(/open\.spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)/);
-      if (!match) return null;
-      return `https://open.spotify.com/embed/${match[1]}/${match[2]}?theme=0`;
-    }
-    default:
-      return null;
-  }
-}
+import { EMBED_PROVIDERS, detectEmbedProvider } from './embedProviders';
+import type { EmbedProvider } from './embedProviders';
 
 function getYouTubeId(url: string): string | null {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
   return match ? match[1] : null;
+}
+
+function resolveProvider(data: EmbedBlockData): { provider: EmbedProvider; src: string } | null {
+  // First try to match by embed_type for backwards compat
+  if (data.embed_type) {
+    const byType = EMBED_PROVIDERS.find((p) => p.id === data.embed_type);
+    if (byType) {
+      const src = byType.getEmbedSrc(data.embed_url);
+      if (src) return { provider: byType, src };
+    }
+  }
+  // Then try auto-detect from URL
+  const detected = detectEmbedProvider(data.embed_url);
+  if (detected) {
+    const src = detected.getEmbedSrc(data.embed_url);
+    if (src) return { provider: detected, src };
+  }
+  return null;
 }
 
 export function EmbedRenderer({ block, pageId }: BlockRendererProps) {
@@ -30,11 +34,11 @@ export function EmbedRenderer({ block, pageId }: BlockRendererProps) {
   const [loaded, setLoaded] = useState(false);
   if (!data.embed_url) return null;
 
-  const src = getEmbedSrc(data.embed_type, data.embed_url);
-  if (!src) return null;
+  const resolved = resolveProvider(data);
+  if (!resolved) return null;
 
-  const isSpotify = data.embed_type === 'spotify';
-  const isYouTube = data.embed_type === 'youtube';
+  const { provider, src } = resolved;
+  const isYouTube = provider.id === 'youtube';
   const youtubeId = isYouTube ? getYouTubeId(data.embed_url) : null;
 
   function handleInteract() {
@@ -52,7 +56,7 @@ export function EmbedRenderer({ block, pageId }: BlockRendererProps) {
     >
       <div
         className="relative"
-        style={isYouTube ? { aspectRatio: '16 / 9', width: '100%' } : undefined}
+        style={provider.aspectRatio ? { aspectRatio: provider.aspectRatio, width: '100%' } : undefined}
       >
         {/* YouTube thumbnail preview before load */}
         {isYouTube && youtubeId && !loaded && (
@@ -76,10 +80,10 @@ export function EmbedRenderer({ block, pageId }: BlockRendererProps) {
         )}
         <iframe
           src={src}
-          title={`${data.embed_type} embed`}
+          title={`${provider.label} embed`}
           className="w-full border-0"
           style={{
-            height: isYouTube ? '100%' : isSpotify ? 152 : 315,
+            height: provider.aspectRatio ? '100%' : provider.height || 315,
             opacity: loaded ? 1 : 0,
             transition: 'opacity 300ms ease',
           }}

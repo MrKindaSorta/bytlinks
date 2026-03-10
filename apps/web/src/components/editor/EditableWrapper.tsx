@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { GripVertical, Pencil, Eye, EyeOff, Trash2, Columns2, Square } from 'lucide-react';
+import { GripVertical, Pencil, Eye, EyeOff, Trash2, Columns2, Square, Copy } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -17,6 +17,8 @@ interface EditableWrapperProps {
   onEdit?: () => void;
   /** Callback to toggle visibility */
   onToggleVisibility?: () => void;
+  /** Callback to duplicate */
+  onDuplicate?: () => void;
   /** Callback to delete */
   onDelete?: () => void;
   /** Whether DnD is enabled for this item */
@@ -43,6 +45,7 @@ export function EditableWrapper({
   isVisible = true,
   onEdit,
   onToggleVisibility,
+  onDuplicate,
   onDelete,
   draggable = true,
   isSelected,
@@ -162,6 +165,18 @@ export function EditableWrapper({
             title={isVisible ? 'Hide' : 'Show'}
           >
             {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+        )}
+
+        {/* Duplicate */}
+        {!isBuiltIn && onDuplicate && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+            className="p-1 rounded transition-colors duration-150 hover:opacity-70"
+            style={{ color: 'var(--page-text-muted, rgba(0,0,0,0.3))' }}
+            title="Duplicate"
+          >
+            <Copy className="w-3.5 h-3.5" />
           </button>
         )}
 

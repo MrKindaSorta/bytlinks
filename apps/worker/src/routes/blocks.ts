@@ -1,16 +1,33 @@
 import { Hono } from 'hono';
 import type { Env } from '../index';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
+import { BLOCK_LIMITS } from '@bytlinks/shared/constants';
+import { scrapeOg } from '../utils/ogScraper';
 
 export const blockRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
 blockRoutes.use('*', authMiddleware);
 
-const BLOCK_LIMITS: Record<string, { max_blocks: number; allowed_types: readonly string[] | 'all' }> = {
-  free: { max_blocks: 3, allowed_types: ['embed', 'rich-link', 'quote', 'faq', 'countdown'] },
-  pro: { max_blocks: 25, allowed_types: 'all' },
-  business: { max_blocks: 25, allowed_types: 'all' },
-};
+/**
+ * GET /api/blocks/og?url=<encoded> — scrape OG metadata from a URL
+ */
+blockRoutes.get('/og', async (c) => {
+  const url = c.req.query('url');
+  if (!url) return c.json({ success: false, error: 'url param is required' }, 400);
+
+  try {
+    new URL(url); // validate
+  } catch {
+    return c.json({ success: false, error: 'Invalid URL' }, 400);
+  }
+
+  try {
+    const meta = await scrapeOg(url);
+    return c.json({ success: true, data: meta });
+  } catch {
+    return c.json({ success: false, error: 'Failed to fetch metadata' }, 502);
+  }
+});
 
 /**
  * GET /api/blocks — list all content blocks for user's page
@@ -65,9 +82,9 @@ blockRoutes.post('/', async (c) => {
 
     if (!page) return c.json({ success: false, error: 'No page found' }, 404);
 
-    // Check plan limits
+    // Check plan limits — business uses pro limits; fallback to free
     const plan = user.plan || 'free';
-    const limits = BLOCK_LIMITS[plan] || BLOCK_LIMITS.free;
+    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.pro;
 
     const existingCount = await c.env.DB.prepare(
       'SELECT COUNT(*) as cnt FROM content_blocks WHERE page_id = ?'
@@ -77,7 +94,7 @@ blockRoutes.post('/', async (c) => {
       return c.json({ success: false, error: `Block limit reached (${limits.max_blocks})` }, 403);
     }
 
-    if (limits.allowed_types !== 'all' && !limits.allowed_types.includes(body.block_type)) {
+    if (limits.allowed_types !== 'all' && !(limits.allowed_types as readonly string[]).includes(body.block_type)) {
       return c.json({ success: false, error: 'This block type requires a Pro plan' }, 403);
     }
 
@@ -180,6 +197,77 @@ blockRoutes.put('/:id', async (c) => {
     return c.json({ success: true });
   } catch {
     return c.json({ success: false, error: 'Failed to update block' }, 500);
+  }
+});
+
+/**
+ * POST /api/blocks/:id/duplicate — duplicate a block, insert after source in section_order
+ */
+blockRoutes.post('/:id/duplicate', async (c) => {
+  const user = c.get('user');
+  const sourceId = c.req.param('id');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id, section_order FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ id: string; section_order: string | null }>();
+
+    if (!page) return c.json({ success: false, error: 'No page found' }, 404);
+
+    // Check plan limits
+    const plan = user.plan || 'free';
+    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.pro;
+
+    const existingCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM content_blocks WHERE page_id = ?'
+    ).bind(page.id).first<{ cnt: number }>();
+
+    if (existingCount && existingCount.cnt >= limits.max_blocks) {
+      return c.json({ success: false, error: `Block limit reached (${limits.max_blocks})` }, 403);
+    }
+
+    const source = await c.env.DB.prepare(
+      'SELECT * FROM content_blocks WHERE id = ? AND page_id = ?'
+    ).bind(sourceId, page.id).first<Record<string, unknown>>();
+
+    if (!source) return c.json({ success: false, error: 'Block not found' }, 404);
+
+    const newId = crypto.randomUUID();
+
+    await c.env.DB.prepare(
+      'INSERT INTO content_blocks (id, page_id, block_type, title, data, is_visible, column_span) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(newId, page.id, source.block_type, source.title, source.data, source.is_visible, source.column_span ?? null).run();
+
+    // Insert into section_order right after the source block
+    const currentOrder: string[] = page.section_order
+      ? JSON.parse(page.section_order)
+      : ['social_links', 'links'];
+    const sourceIdx = currentOrder.indexOf(`block:${sourceId}`);
+    if (sourceIdx >= 0) {
+      currentOrder.splice(sourceIdx + 1, 0, `block:${newId}`);
+    } else {
+      currentOrder.push(`block:${newId}`);
+    }
+
+    await c.env.DB.prepare(
+      'UPDATE bio_pages SET section_order = ? WHERE id = ?'
+    ).bind(JSON.stringify(currentOrder), page.id).run();
+
+    return c.json({
+      success: true,
+      data: {
+        id: newId,
+        page_id: page.id,
+        block_type: source.block_type,
+        title: source.title,
+        data: JSON.parse(source.data as string),
+        is_visible: !!source.is_visible,
+        column_span: source.column_span ?? null,
+        created_at: Math.floor(Date.now() / 1000),
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to duplicate block' }, 500);
   }
 });
 

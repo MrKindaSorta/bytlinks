@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { BlockRendererProps } from './blockRendererRegistry';
-import type { CollabsData, BioPage } from '@bytlinks/shared';
+import type { CollabsData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
 
 interface CollabProfile {
@@ -21,25 +21,26 @@ export function CollabsRenderer({ block, pageId }: BlockRendererProps) {
       return;
     }
 
-    // Fetch all profiles in parallel (individual requests — no batch endpoint yet)
-    Promise.all(
-      data.usernames.map(async (username) => {
-        try {
-          const res = await fetch(`/api/public/${username}`);
-          const json = await res.json();
-          if (json.success) {
-            const page = json.data.page as BioPage;
-            return { username, display_name: page.display_name, avatar_r2_key: page.avatar_r2_key };
+    // Batch fetch all profiles in a single request
+    fetch(`/api/public/batch-profiles?usernames=${encodeURIComponent(data.usernames.join(','))}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          // Preserve the order from data.usernames, fill missing with fallback
+          const profileMap = new Map<string, CollabProfile>();
+          for (const p of json.data as CollabProfile[]) {
+            profileMap.set(p.username, p);
           }
-        } catch {
-          // silent
+          setProfiles(
+            data.usernames.map((u) => profileMap.get(u) || { username: u, display_name: null, avatar_r2_key: null })
+          );
         }
-        return { username, display_name: null, avatar_r2_key: null };
       })
-    ).then((results) => {
-      setProfiles(results);
-      setLoading(false);
-    });
+      .catch(() => {
+        // Fallback: show usernames without profile data
+        setProfiles(data.usernames.map((u) => ({ username: u, display_name: null, avatar_r2_key: null })));
+      })
+      .finally(() => setLoading(false));
   }, [data.usernames]);
 
   if (!data.usernames?.length) return null;

@@ -82,6 +82,36 @@ export function useBlocks() {
     if (!data.success) throw new Error(data.error);
   }, []);
 
+  const duplicateBlock = useCallback(async (id: string) => {
+    const res = await fetch(`/api/blocks/${id}/duplicate`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    const newBlock = data.data as ContentBlock;
+    useBlockStore.getState().addBlock(newBlock);
+    useBlockStore.getState().setFocusedBlockId(newBlock.id);
+
+    // Insert into section_order right after source
+    const page = usePageStore.getState().page;
+    if (page) {
+      const currentOrder = [...(page.section_order ?? ['social_links', 'links'])];
+      const sourceIdx = currentOrder.indexOf(`block:${id}`);
+      if (sourceIdx >= 0) {
+        currentOrder.splice(sourceIdx + 1, 0, `block:${newBlock.id}`);
+      } else {
+        currentOrder.push(`block:${newBlock.id}`);
+      }
+      usePageStore.getState().setPage({
+        ...page,
+        section_order: currentOrder,
+      });
+    }
+
+    return newBlock;
+  }, []);
+
   const deleteBlock = useCallback(async (id: string) => {
     const res = await fetch(`/api/blocks/${id}`, {
       method: 'DELETE',
@@ -115,5 +145,5 @@ export function useBlocks() {
     return data.data as { r2_key: string; filename: string; file_size: number; url: string };
   }, []);
 
-  return { blocks, isLoading, fetchBlocks, createBlock, editBlock, deleteBlock, uploadFile };
+  return { blocks, isLoading, fetchBlocks, createBlock, editBlock, duplicateBlock, deleteBlock, uploadFile };
 }

@@ -75,7 +75,7 @@ import type { ThemeColorContext } from '../builder/LinkOverrideEditor';
 export function MyBytLink() {
   const { page, updatePage } = usePage();
   const { links, editLink, deleteLink, saveOrder } = useLinks();
-  const { blocks, editBlock, deleteBlock } = useBlocks();
+  const { blocks, editBlock, duplicateBlock, deleteBlock } = useBlocks();
   const embeds = usePageStore((s) => s.embeds);
   const { uploadAvatar } = useUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -808,6 +808,11 @@ export function MyBytLink() {
                 ? () => editBlock(block.id, { is_visible: !block.is_visible })
                 : undefined
             }
+            onDuplicate={
+              block
+                ? () => duplicateBlock(block.id)
+                : undefined
+            }
             onDelete={
               block
                 ? () => deleteBlock(block.id)
@@ -1350,6 +1355,9 @@ export function MyBytLink() {
             canMoveDown={sIdx < sectionOrder.length - 1}
             onToggleVisibility={
               block ? () => editBlock(block.id, { is_visible: !block.is_visible }) : undefined
+            }
+            onDuplicate={
+              !builtIn && block ? () => { duplicateBlock(block.id); clearSelection(); } : undefined
             }
             onDelete={
               !builtIn && block ? () => { deleteBlock(block.id); clearSelection(); } : undefined

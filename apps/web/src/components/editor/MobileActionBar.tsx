@@ -1,4 +1,4 @@
-import { Pencil, ArrowUp, ArrowDown, Eye, EyeOff, Star, Trash2, X } from 'lucide-react';
+import { Pencil, ArrowUp, ArrowDown, Eye, EyeOff, Star, Copy, Trash2, X } from 'lucide-react';
 
 interface ActionButtonProps {
   icon: React.FC<{ className?: string }>;
@@ -39,6 +39,7 @@ export interface MobileActionBarProps {
   onMoveDown?: () => void;
   onToggleVisibility?: () => void;
   onToggleFeatured?: () => void;
+  onDuplicate?: () => void;
   onDelete?: () => void;
   onDeselect: () => void;
   canMoveUp: boolean;
@@ -55,6 +56,7 @@ export function MobileActionBar({
   onMoveDown,
   onToggleVisibility,
   onToggleFeatured,
+  onDuplicate,
   onDelete,
   onDeselect,
   canMoveUp,
@@ -126,6 +128,7 @@ export function MobileActionBar({
               onClick={onToggleVisibility}
             />
           )}
+          {onDuplicate && <ActionButton icon={Copy} label="Copy" onClick={onDuplicate} />}
           {onDelete && <ActionButton icon={Trash2} label="Delete" onClick={onDelete} danger />}
         </div>
       </div>

@@ -3,6 +3,21 @@ import type { Env } from '../index';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
+/** IP-based rate limiter for newsletter signups — 10 per IP per hour */
+const newsletterRateMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkNewsletterRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = newsletterRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    newsletterRateMap.set(ip, { count: 1, resetAt: now + 3600_000 });
+    return true;
+  }
+  if (entry.count >= 10) return false;
+  entry.count++;
+  return true;
+}
+
 /**
  * GET /api/public/avatar/:key+ — serve avatar from R2
  */
@@ -103,6 +118,11 @@ publicRoutes.post('/poll/:blockId/vote', async (c) => {
  * POST /api/public/newsletter/:blockId — submit email signup
  */
 publicRoutes.post('/newsletter/:blockId', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+  if (!checkNewsletterRateLimit(ip)) {
+    return c.json({ success: false, error: 'Too many requests' }, 429);
+  }
+
   const blockId = c.req.param('blockId');
   const body = await c.req.json<{ email: string }>();
 
@@ -128,6 +148,35 @@ publicRoutes.post('/newsletter/:blockId', async (c) => {
     return c.json({ success: true });
   } catch {
     return c.json({ success: false, error: 'Failed to subscribe' }, 500);
+  }
+});
+
+/**
+ * GET /api/public/batch-profiles?usernames=alice,bob,carol — fetch multiple profiles in one query
+ */
+publicRoutes.get('/batch-profiles', async (c) => {
+  const raw = c.req.query('usernames');
+  if (!raw) return c.json({ success: false, error: 'usernames param is required' }, 400);
+
+  const usernames = raw.split(',').map((u) => u.trim()).filter(Boolean).slice(0, 20);
+  if (usernames.length === 0) return c.json({ success: true, data: [] });
+
+  try {
+    const placeholders = usernames.map(() => '?').join(',');
+    const rows = await c.env.DB.prepare(
+      `SELECT username, display_name, avatar_r2_key FROM bio_pages WHERE username IN (${placeholders}) AND is_published = 1`
+    ).bind(...usernames).all();
+
+    return c.json({
+      success: true,
+      data: rows.results.map((r: Record<string, unknown>) => ({
+        username: r.username,
+        display_name: r.display_name,
+        avatar_r2_key: r.avatar_r2_key,
+      })),
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to fetch profiles' }, 500);
   }
 });
 
