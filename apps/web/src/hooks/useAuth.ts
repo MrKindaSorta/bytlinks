@@ -1,5 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { usePageStore } from '../store/pageStore';
+import { useLinkStore } from '../store/linkStore';
+import { useBlockStore } from '../store/blockStore';
 
 /**
  * Auth hook — handles login, signup, logout, and a one-time session check.
@@ -70,6 +73,9 @@ export function useAuth() {
       credentials: 'include',
     });
     clearUser();
+    usePageStore.getState().reset();
+    useLinkStore.getState().reset();
+    useBlockStore.getState().reset();
   }, [clearUser]);
 
   return { user, isAuthenticated, isLoading, login, signup, logout };

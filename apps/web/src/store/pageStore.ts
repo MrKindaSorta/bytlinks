@@ -11,6 +11,7 @@ interface PageState {
   setLoading: (loading: boolean) => void;
   setFetched: () => void;
   updateTheme: (theme: Partial<Theme>) => void;
+  reset: () => void;
 }
 
 export const usePageStore = create<PageState>((set) => ({
@@ -33,4 +34,5 @@ export const usePageStore = create<PageState>((set) => ({
       }
       return { page: { ...state.page, theme: merged } };
     }),
+  reset: () => set({ page: null, embeds: [], isLoading: true, _hasFetched: false }),
 }));

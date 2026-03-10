@@ -13,6 +13,7 @@ interface BlockState {
   updateBlock: (id: string, updates: Partial<ContentBlock>) => void;
   removeBlock: (id: string) => void;
   setFocusedBlockId: (id: string | null) => void;
+  reset: () => void;
 }
 
 export const useBlockStore = create<BlockState>((set) => ({
@@ -31,4 +32,5 @@ export const useBlockStore = create<BlockState>((set) => ({
   removeBlock: (id) =>
     set((state) => ({ blocks: state.blocks.filter((b) => b.id !== id) })),
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
+  reset: () => set({ blocks: [], isLoading: true, _hasFetched: false, focusedBlockId: null }),
 }));

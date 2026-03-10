@@ -12,6 +12,7 @@ interface LinkState {
   updateLink: (id: string, updates: Partial<Link>) => void;
   removeLink: (id: string) => void;
   reorderLinks: (links: Link[]) => void;
+  reset: () => void;
 }
 
 export const useLinkStore = create<LinkState>((set) => ({
@@ -29,4 +30,5 @@ export const useLinkStore = create<LinkState>((set) => ({
   removeLink: (id) =>
     set((state) => ({ links: state.links.filter((l) => l.id !== id) })),
   reorderLinks: (links) => set({ links }),
+  reset: () => set({ links: [], isLoading: true, _hasFetched: false }),
 }));
