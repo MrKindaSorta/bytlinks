@@ -2,20 +2,22 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Settings, ExternalLink, LayoutDashboard } from 'lucide-react';
+import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers } from 'lucide-react';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
 import { SettingsPanel } from '../components/settings/SettingsPanel';
 import { MyBytLink } from '../components/editor/MyBytLink';
 import { TemplatePicker } from '../components/templates/TemplatePicker';
+import { ManageSection } from '../components/manage/ManageSection';
 import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
-type DashboardTab = 'mybytlink' | 'analytics' | 'settings';
+type DashboardTab = 'mybytlink' | 'analytics' | 'settings' | 'manage';
 
 const TAB_ICONS = {
   mybytlink: LayoutDashboard,
   analytics: BarChart3,
   settings: Settings,
+  manage: Layers,
 } as const;
 
 export default function Dashboard() {
@@ -46,6 +48,7 @@ export default function Dashboard() {
     { key: 'mybytlink', label: 'My BytLink', mobileLabel: 'My Page' },
     { key: 'analytics', label: 'Analytics' },
     { key: 'settings', label: 'Settings' },
+    { key: 'manage', label: 'Manage' },
   ];
 
   return (
@@ -121,6 +124,10 @@ export default function Dashboard() {
         {activeTab === 'mybytlink' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">
             <MyBytLink />
+          </main>
+        ) : activeTab === 'manage' ? (
+          <main className="overflow-y-auto pb-20 lg:pb-0">
+            <ManageSection />
           </main>
         ) : (
           <main className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10 overflow-y-auto">

@@ -17,6 +17,7 @@ import { BookingEditor } from './BookingEditor';
 import { StatsEditor } from './StatsEditor';
 import { TipJarEditor } from './TipJarEditor';
 import { EventEditor } from './EventEditor';
+import { ProductCardEditor } from './ProductCardEditor';
 
 export interface BlockEditorProps {
   block: ContentBlock;
@@ -41,4 +42,5 @@ export const blockEditorRegistry: Record<ContentBlockType, React.FC<BlockEditorP
   'stats': StatsEditor,
   'tip-jar': TipJarEditor,
   'event': EventEditor,
+  'product-card': ProductCardEditor,
 };

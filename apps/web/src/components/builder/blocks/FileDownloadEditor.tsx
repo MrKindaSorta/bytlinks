@@ -16,10 +16,20 @@ export function FileDownloadEditor({ block }: BlockEditorProps) {
   const { editBlock, uploadFile } = useBlocks();
   const data = block.data as FileDownloadData;
   const [buttonLabel, setButtonLabel] = useState(data.button_label || 'Download');
+  const [showDownloadCount, setShowDownloadCount] = useState(data.show_download_count ?? false);
+  const [countMinThreshold, setCountMinThreshold] = useState(data.count_min_threshold ?? 50);
   const [uploading, setUploading] = useState(false);
 
   function save(updates: Partial<FileDownloadData>) {
-    editBlock(block.id, { data: { ...data, button_label: buttonLabel, ...updates } });
+    editBlock(block.id, {
+      data: {
+        ...data,
+        button_label: buttonLabel,
+        show_download_count: showDownloadCount,
+        count_min_threshold: countMinThreshold,
+        ...updates,
+      },
+    });
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -34,6 +44,16 @@ export function FileDownloadEditor({ block }: BlockEditorProps) {
     } finally {
       setUploading(false);
     }
+  }
+
+  function handleToggleDownloadCount(checked: boolean) {
+    setShowDownloadCount(checked);
+    save({ show_download_count: checked });
+  }
+
+  function handleThresholdChange(val: number) {
+    setCountMinThreshold(val);
+    save({ count_min_threshold: val });
   }
 
   return (
@@ -67,6 +87,40 @@ export function FileDownloadEditor({ block }: BlockEditorProps) {
         placeholder="Button label"
         className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
       />
+
+      {/* Download count toggle */}
+      <label className="flex items-center justify-between gap-3 cursor-pointer">
+        <span className="font-body text-sm text-brand-text">Show download count</span>
+        <div className="relative">
+          <input
+            type="checkbox"
+            checked={showDownloadCount}
+            onChange={(e) => handleToggleDownloadCount(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 rounded-full bg-brand-border peer-checked:bg-brand-accent transition-colors duration-150" />
+          <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 peer-checked:translate-x-4" />
+        </div>
+      </label>
+
+      {showDownloadCount && (
+        <div className="space-y-1">
+          <label className="font-body text-xs text-brand-text-muted">
+            Minimum downloads to show badge
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={countMinThreshold}
+            onChange={(e) => handleThresholdChange(Number(e.target.value))}
+            onBlur={() => save({ count_min_threshold: countMinThreshold })}
+            className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+          />
+          <p className="font-body text-[11px] text-brand-text-muted">
+            Badge only appears once this many downloads are reached.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

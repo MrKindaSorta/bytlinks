@@ -8,10 +8,16 @@ export function FaqEditor({ block }: BlockEditorProps) {
   const { editBlock } = useBlocks();
   const data = block.data as FaqData;
   const [items, setItems] = useState<FaqItem[]>(data.items || []);
+  const [showSearch, setShowSearch] = useState(data.show_search ?? false);
+  const [searchPlaceholder, setSearchPlaceholder] = useState(data.search_placeholder || '');
+
+  function saveData(updates: Partial<FaqData>) {
+    editBlock(block.id, { data: { items, show_search: showSearch, search_placeholder: searchPlaceholder, ...updates } });
+  }
 
   function save(newItems: FaqItem[]) {
     setItems(newItems);
-    editBlock(block.id, { data: { items: newItems } });
+    editBlock(block.id, { data: { items: newItems, show_search: showSearch, search_placeholder: searchPlaceholder } });
   }
 
   function updateItem(index: number, updates: Partial<FaqItem>) {
@@ -33,6 +39,11 @@ export function FaqEditor({ block }: BlockEditorProps) {
     const newItems = [...items];
     [newItems[fromIndex], newItems[toIndex]] = [newItems[toIndex], newItems[fromIndex]];
     save(newItems);
+  }
+
+  function handleToggleSearch(checked: boolean) {
+    setShowSearch(checked);
+    saveData({ show_search: checked });
   }
 
   return (
@@ -101,6 +112,41 @@ export function FaqEditor({ block }: BlockEditorProps) {
         <Plus className="w-3.5 h-3.5" />
         Add question
       </button>
+
+      {/* Divider */}
+      <div className="border-t border-brand-border pt-3 space-y-3">
+        {/* Show search toggle */}
+        <label className="flex items-center justify-between gap-3 cursor-pointer">
+          <div>
+            <span className="font-body text-sm text-brand-text">Show search bar</span>
+            <p className="font-body text-[11px] text-brand-text-muted">Appears when you have more than 5 questions</p>
+          </div>
+          <div className="relative shrink-0">
+            <input
+              type="checkbox"
+              checked={showSearch}
+              onChange={(e) => handleToggleSearch(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 rounded-full bg-brand-border peer-checked:bg-brand-accent transition-colors duration-150" />
+            <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 peer-checked:translate-x-4" />
+          </div>
+        </label>
+
+        {showSearch && (
+          <div className="space-y-1">
+            <label className="font-body text-xs text-brand-text-muted">Search placeholder text</label>
+            <input
+              type="text"
+              value={searchPlaceholder}
+              onChange={(e) => setSearchPlaceholder(e.target.value)}
+              onBlur={() => saveData({ search_placeholder: searchPlaceholder })}
+              placeholder="Search questions…"
+              className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

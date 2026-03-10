@@ -55,6 +55,30 @@ export const EMBED_PROVIDERS: EmbedProvider[] = [
     getEmbedSrc: (url) => url.replace('music.apple.com', 'embed.music.apple.com'),
     height: 175,
   },
+  {
+    id: 'tidal',
+    label: 'Tidal',
+    match: /tidal\.com\/(track|album|playlist)\/(\d+)/,
+    getEmbedSrc: (url) => {
+      const match = url.match(/tidal\.com\/(track|album|playlist)\/(\d+)/);
+      return match ? `https://embed.tidal.com/${match[1]}s/${match[2]}` : null;
+    },
+    height: 152,
+  },
+  {
+    id: 'bandcamp',
+    label: 'Bandcamp',
+    match: /bandcamp\.com/,
+    getEmbedSrc: (url) => `https://bandcamp.com/EmbeddedPlayer/v=2/url=${encodeURIComponent(url)}/size=large/tracklist=false/artwork=small/`,
+    height: 152,
+  },
+  {
+    id: 'substack',
+    label: 'Substack',
+    match: /substack\.com/,
+    getEmbedSrc: (url) => url.endsWith('/embed') ? url : `${url}/embed`,
+    aspectRatio: '16 / 9',
+  },
 ];
 
 /** Detect provider from a URL. Returns null if no match. */

@@ -76,6 +76,16 @@ analyticsRoutes.use('/link-performance', authMiddleware);
 analyticsRoutes.use('/realtime', authMiddleware);
 analyticsRoutes.use('/block-performance', authMiddleware);
 analyticsRoutes.use('/newsletter-subscribers', authMiddleware);
+analyticsRoutes.use('/booking-summary', authMiddleware);
+analyticsRoutes.use('/newsletter-signups-by-day', authMiddleware);
+
+/** Helper: get total file_download event count for a specific block */
+export async function getDownloadCount(db: D1Database, blockId: string): Promise<number> {
+  const result = await db.prepare(
+    `SELECT COUNT(*) as count FROM analytics_events WHERE link_id = ? AND event_type = 'file_download'`
+  ).bind(blockId).first<{ count: number }>();
+  return result?.count ?? 0;
+}
 
 /** Helper: get the user's page ID */
 async function getPageId(c: any): Promise<string | null> {
@@ -497,6 +507,80 @@ analyticsRoutes.get('/block-performance', async (c) => {
     });
   } catch {
     return c.json({ success: false, error: 'Failed to load block performance' }, 500);
+  }
+});
+
+/**
+ * GET /api/analytics/booking-summary — booking_click + schedule_click counts (last 30 days)
+ */
+analyticsRoutes.get('/booking-summary', async (c) => {
+  try {
+    const pageId = await getPageId(c);
+    if (!pageId) return c.json({ success: false, error: 'No page found' }, 404);
+
+    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 86400;
+
+    const [bookingClicks, scheduleClicks] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM analytics_events
+         WHERE page_id = ? AND event_type = 'booking_click' AND timestamp > ?`
+      ).bind(pageId, thirtyDaysAgo).first<{ count: number }>(),
+
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM analytics_events
+         WHERE page_id = ? AND event_type = 'schedule_click' AND timestamp > ?`
+      ).bind(pageId, thirtyDaysAgo).first<{ count: number }>(),
+    ]);
+
+    return c.json({
+      success: true,
+      data: {
+        booking_clicks: bookingClicks?.count ?? 0,
+        schedule_clicks: scheduleClicks?.count ?? 0,
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to load booking summary' }, 500);
+  }
+});
+
+/**
+ * GET /api/analytics/newsletter-signups-by-day?block_id=xxx&days=30
+ */
+analyticsRoutes.get('/newsletter-signups-by-day', async (c) => {
+  try {
+    const pageId = await getPageId(c);
+    if (!pageId) return c.json({ success: false, error: 'No page found' }, 404);
+
+    const blockId = c.req.query('block_id');
+    if (!blockId) return c.json({ success: false, error: 'block_id required' }, 400);
+
+    const daysParam = parseInt(c.req.query('days') ?? '30', 10);
+    const days = isNaN(daysParam) || daysParam < 1 ? 30 : Math.min(daysParam, 365);
+    const since = Math.floor(Date.now() / 1000) - days * 86400;
+
+    // Verify block belongs to this page
+    const block = await c.env.DB.prepare(
+      'SELECT id FROM content_blocks WHERE id = ? AND page_id = ?'
+    ).bind(blockId, pageId).first();
+    if (!block) return c.json({ success: false, error: 'Block not found' }, 404);
+
+    const result = await c.env.DB.prepare(
+      `SELECT DATE(created_at) as day, COUNT(*) as count
+       FROM newsletter_signups
+       WHERE block_id = ? AND (
+         CASE
+           WHEN typeof(created_at) = 'integer' THEN created_at > ?
+           ELSE datetime(created_at) > datetime(?, 'unixepoch')
+         END
+       )
+       GROUP BY day
+       ORDER BY day ASC`
+    ).bind(blockId, since, since).all();
+
+    return c.json({ success: true, data: result.results });
+  } catch {
+    return c.json({ success: false, error: 'Failed to load newsletter signups by day' }, 500);
   }
 });
 

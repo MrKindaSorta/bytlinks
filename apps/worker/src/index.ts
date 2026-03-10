@@ -12,6 +12,7 @@ import { adminRoutes } from './routes/admin';
 import { verificationRoutes } from './routes/verification';
 import { importRoutes } from './routes/import';
 import { exportRoutes } from './routes/export';
+import { utilRoutes, eventRsvpRoutes } from './routes/utils';
 
 export type Env = {
   DB: D1Database;
@@ -20,6 +21,10 @@ export type Env = {
   JWT_SECRET: string;
   ENVIRONMENT: string;
   ADMIN_SECRET: string;
+  SPOTIFY_CLIENT_ID?: string;
+  SPOTIFY_CLIENT_SECRET?: string;
+  YOUTUBE_API_KEY?: string;
+  CREDENTIALS_ENCRYPTION_KEY?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -45,6 +50,8 @@ app.route('/api/admin', adminRoutes);
 app.route('/api/verification', verificationRoutes);
 app.route('/api/import', importRoutes);
 app.route('/api/export', exportRoutes);
+app.route('/api/utils', utilRoutes);
+app.route('/api/event-rsvps', eventRsvpRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
@@ -63,4 +70,56 @@ app.all('*', async (c) => {
   return res;
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // Refresh live stats every 6 hours
+    const { fetchLiveStat } = await import('./utils/liveStats');
+
+    try {
+      const blocks = await env.DB.prepare(
+        "SELECT id, data FROM content_blocks WHERE block_type = 'stats'"
+      ).all<{ id: string; data: string }>();
+
+      if (!blocks.results?.length) return;
+
+      const envVars = {
+        SPOTIFY_CLIENT_ID: env.SPOTIFY_CLIENT_ID,
+        SPOTIFY_CLIENT_SECRET: env.SPOTIFY_CLIENT_SECRET,
+        YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
+      };
+
+      // Process in batches of 10
+      const allTasks: { blockId: string; data: { items: Record<string, unknown>[]; animate?: boolean }; itemIndex: number; source: string; sourceUrl: string }[] = [];
+
+      for (const block of blocks.results) {
+        const data = JSON.parse(block.data) as { items: Record<string, unknown>[] };
+        for (let i = 0; i < data.items.length; i++) {
+          const item = data.items[i];
+          if (item.source && item.source !== 'manual' && item.source_url) {
+            allTasks.push({ blockId: block.id, data, itemIndex: i, source: item.source as string, sourceUrl: item.source_url as string });
+          }
+        }
+      }
+
+      for (let i = 0; i < allTasks.length; i += 10) {
+        const batch = allTasks.slice(i, i + 10);
+        await Promise.allSettled(batch.map(async (task) => {
+          const result = await fetchLiveStat(task.source, task.sourceUrl, envVars);
+          if ('value' in result) {
+            task.data.items[task.itemIndex] = {
+              ...task.data.items[task.itemIndex],
+              live_value: result.value,
+              last_fetched_at: Math.floor(Date.now() / 1000),
+            };
+            await env.DB.prepare(
+              'UPDATE content_blocks SET data = ? WHERE id = ?'
+            ).bind(JSON.stringify(task.data), task.blockId).run();
+          }
+        }));
+      }
+    } catch {
+      // Cron failure is non-critical
+    }
+  },
+};

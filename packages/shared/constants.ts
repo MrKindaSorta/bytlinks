@@ -202,7 +202,7 @@ export const BLOCK_LIMITS = {
 /** Block type metadata — labels, icons (Lucide), and categories */
 export const BLOCK_TYPE_META = {
   embed: { label: 'Embed', icon: 'play', category: 'media' },
-  microblog: { label: 'Microblog', icon: 'message-square', category: 'content' },
+  microblog: { label: 'Updates', icon: 'message-square', category: 'content' },
   'rich-link': { label: 'Rich Link', icon: 'link', category: 'content' },
   'social-post': { label: 'Social Post', icon: 'share-2', category: 'media' },
   'image-gallery': { label: 'Image Gallery', icon: 'image', category: 'media' },
@@ -217,8 +217,9 @@ export const BLOCK_TYPE_META = {
   countdown: { label: 'Countdown', icon: 'timer', category: 'content' },
   booking: { label: 'Book a Call', icon: 'calendar-check', category: 'interactive' },
   stats: { label: 'Stats / Numbers', icon: 'trending-up', category: 'content' },
-  'tip-jar': { label: 'Tip Jar', icon: 'heart', category: 'interactive' },
+  'tip-jar': { label: 'Payment Options', icon: 'heart', category: 'interactive' },
   event: { label: 'Event / Drop', icon: 'ticket', category: 'content' },
+  'product-card': { label: 'Product Card', icon: 'shopping-bag', category: 'interactive' },
 } as const;
 
 /** Block types that span full width in 2-column desktop grid */

@@ -22,6 +22,9 @@ database_id = "443ee64a-bcbc-4c7e-977a-30c08f5d8f1c"
 binding = "STORAGE"
 bucket_name = "bytlinks-uploads"
 
+[triggers]
+crons = ["0 */6 * * *"]
+
 # Local development overrides
 [env.dev]
 [env.dev.vars]

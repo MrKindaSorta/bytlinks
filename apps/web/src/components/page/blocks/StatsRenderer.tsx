@@ -139,7 +139,7 @@ export function StatsRenderer({ block, pageId }: BlockRendererProps) {
                 fontFamily: 'var(--page-font-display)',
               }}
             >
-              <AnimatedNumber value={item.value} animate={animate} />
+              <AnimatedNumber value={(item.source && item.source !== 'manual' && item.live_value) ? item.live_value : item.value} animate={animate} />
             </div>
             <div
               className="text-xs mt-1 uppercase tracking-wider"

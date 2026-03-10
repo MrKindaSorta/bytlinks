@@ -1,5 +1,9 @@
 import { Hono } from 'hono';
 import type { Env } from '../index';
+import { decryptCredential } from '../utils/crypto';
+import { syncToMailchimp, syncToConvertKit } from '../utils/emailProviders';
+import type { NewsletterData, FileDownloadData } from '@bytlinks/shared';
+import { getDownloadCount } from './analytics';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
@@ -63,6 +67,40 @@ publicRoutes.get('/file/*', async (c) => {
 });
 
 /**
+ * GET /api/public/block/:blockId/download-count — public download count badge
+ * Returns { count: number } only if show_download_count is true AND count >= count_min_threshold.
+ * Otherwise returns { count: null }.
+ */
+publicRoutes.get('/block/:blockId/download-count', async (c) => {
+  const blockId = c.req.param('blockId');
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'file-download').first<{ data: string }>();
+
+    if (!block) {
+      return c.json({ count: null });
+    }
+
+    const data = JSON.parse(block.data) as FileDownloadData;
+    if (!data.show_download_count) {
+      return c.json({ count: null });
+    }
+
+    const minThreshold = data.count_min_threshold ?? 50;
+    const count = await getDownloadCount(c.env.DB, blockId);
+
+    if (count >= minThreshold) {
+      return c.json({ count });
+    }
+    return c.json({ count: null });
+  } catch {
+    return c.json({ count: null });
+  }
+});
+
+/**
  * POST /api/public/poll/:blockId/vote — cast a poll vote (cookie-gated)
  */
 publicRoutes.post('/poll/:blockId/vote', async (c) => {
@@ -90,7 +128,10 @@ publicRoutes.post('/poll/:blockId/vote', async (c) => {
     }
 
     const pollData = JSON.parse(block.data);
-    if (pollData.closed) {
+    const isPastEndDate = pollData.end_date
+      ? new Date(pollData.end_date).getTime() < Date.now()
+      : false;
+    if (pollData.closed || isPastEndDate) {
       return c.json({ success: false, error: 'Poll is closed' }, 403);
     }
 
@@ -132,22 +173,160 @@ publicRoutes.post('/newsletter/:blockId', async (c) => {
 
   try {
     const block = await c.env.DB.prepare(
-      'SELECT id FROM content_blocks WHERE id = ? AND block_type = ?'
-    ).bind(blockId, 'newsletter').first();
+      'SELECT id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'newsletter').first<{ id: string; data: string }>();
 
     if (!block) {
       return c.json({ success: false, error: 'Newsletter not found' }, 404);
     }
 
     const id = crypto.randomUUID();
-    const result = await c.env.DB.prepare(
+    await c.env.DB.prepare(
       'INSERT OR IGNORE INTO newsletter_signups (id, block_id, email) VALUES (?, ?, ?)'
     ).bind(id, blockId, body.email).run();
+
+    // Sync to email provider if configured
+    const blockData = JSON.parse(block.data) as NewsletterData;
+    const syncProvider = blockData.sync_provider;
+
+    if (syncProvider && syncProvider !== 'none' && c.env.CREDENTIALS_ENCRYPTION_KEY) {
+      const encKey = c.env.CREDENTIALS_ENCRYPTION_KEY;
+      const email = body.email;
+
+      // Use ctx.waitUntil so the response is sent immediately
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const cred = await c.env.DB.prepare(
+              'SELECT encrypted_key, metadata FROM provider_credentials WHERE block_id = ? AND provider = ? LIMIT 1'
+            ).bind(blockId, syncProvider).first<{ encrypted_key: string; metadata: string | null }>();
+
+            if (!cred) return;
+
+            const apiKey = await decryptCredential(cred.encrypted_key, encKey);
+            if (!apiKey) return;
+
+            if (syncProvider === 'mailchimp') {
+              const meta = cred.metadata ? JSON.parse(cred.metadata) as { audience_id?: string; datacenter?: string } : {};
+              const audienceId = blockData.mailchimp_audience_id || meta.audience_id || '';
+              const datacenter = blockData.mailchimp_datacenter || meta.datacenter;
+              if (audienceId) {
+                await syncToMailchimp(email, apiKey, audienceId, datacenter);
+              }
+            } else if (syncProvider === 'convertkit') {
+              const formId = blockData.convertkit_form_id || '';
+              if (formId) {
+                await syncToConvertKit(email, apiKey, formId);
+              }
+            }
+          } catch {
+            // Sync failure is non-critical — subscriber is already saved locally
+          }
+        })()
+      );
+    }
 
     // If no rows changed, email already existed — still return success to user
     return c.json({ success: true });
   } catch {
     return c.json({ success: false, error: 'Failed to subscribe' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/event/:blockId/interested — mark interest via cookie (no body)
+ */
+publicRoutes.post('/event/:blockId/interested', async (c) => {
+  const blockId = c.req.param('blockId');
+  const cookieName = `event_interested_${blockId}`;
+  const cookies = c.req.header('cookie') || '';
+
+  if (cookies.includes(cookieName)) {
+    // Already marked — just return current count
+    try {
+      const block = await c.env.DB.prepare(
+        'SELECT data FROM content_blocks WHERE id = ? AND block_type = ?'
+      ).bind(blockId, 'event').first<{ data: string }>();
+      if (!block) return c.json({ success: false, error: 'Event not found' }, 404);
+      const eventData = JSON.parse(block.data);
+      return c.json({ interested_count: eventData.interested_count || 0 });
+    } catch {
+      return c.json({ success: false, error: 'Failed' }, 500);
+    }
+  }
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'event').first<{ id: string; data: string }>();
+
+    if (!block) return c.json({ success: false, error: 'Event not found' }, 404);
+
+    const eventData = JSON.parse(block.data);
+    if (!eventData.rsvp_enabled) return c.json({ success: false, error: 'RSVP not enabled' }, 403);
+
+    eventData.interested_count = (eventData.interested_count || 0) + 1;
+
+    await c.env.DB.prepare(
+      'UPDATE content_blocks SET data = ? WHERE id = ?'
+    ).bind(JSON.stringify(eventData), blockId).run();
+
+    // Also insert an rsvp row for tracking
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(
+      'INSERT OR IGNORE INTO event_rsvps (id, block_id, type) VALUES (?, ?, ?)'
+    ).bind(id, blockId, 'interested').run();
+
+    const res = c.json({ interested_count: eventData.interested_count });
+    res.headers.set('Set-Cookie', `${cookieName}=1; Path=/; Max-Age=2592000; SameSite=Lax`);
+    return res;
+  } catch {
+    return c.json({ success: false, error: 'Failed to mark interest' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/event/:blockId/rsvp — submit RSVP form
+ */
+publicRoutes.post('/event/:blockId/rsvp', async (c) => {
+  const blockId = c.req.param('blockId');
+  const body = await c.req.json<{ name?: string; email: string }>();
+
+  if (!body.email || !body.email.includes('@')) {
+    return c.json({ success: false, error: 'Valid email is required' }, 400);
+  }
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'event').first<{ id: string; data: string }>();
+
+    if (!block) return c.json({ success: false, error: 'Event not found' }, 404);
+
+    const eventData = JSON.parse(block.data);
+    if (!eventData.rsvp_enabled) return c.json({ success: false, error: 'RSVP not enabled' }, 403);
+    if (eventData.rsvp_mode === 'interested') {
+      return c.json({ success: false, error: 'Full RSVP not available for this event' }, 403);
+    }
+
+    // Check cap
+    if (eventData.rsvp_cap) {
+      const count = await c.env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM event_rsvps WHERE block_id = ? AND type = 'rsvp'"
+      ).bind(blockId).first<{ cnt: number }>();
+      if (count && count.cnt >= eventData.rsvp_cap) {
+        return c.json({ success: false, error: 'RSVP capacity reached' }, 409);
+      }
+    }
+
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(
+      'INSERT OR IGNORE INTO event_rsvps (id, block_id, type, name, email) VALUES (?, ?, ?, ?, ?)'
+    ).bind(id, blockId, 'rsvp', body.name || null, body.email).run();
+
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to submit RSVP' }, 500);
   }
 });
 
@@ -164,7 +343,7 @@ publicRoutes.get('/batch-profiles', async (c) => {
   try {
     const placeholders = usernames.map(() => '?').join(',');
     const rows = await c.env.DB.prepare(
-      `SELECT username, display_name, avatar_r2_key FROM bio_pages WHERE username IN (${placeholders}) AND is_published = 1`
+      `SELECT username, display_name, bio, job_title, profession, avatar_r2_key FROM bio_pages WHERE username IN (${placeholders}) AND is_published = 1`
     ).bind(...usernames).all();
 
     return c.json({
@@ -172,6 +351,9 @@ publicRoutes.get('/batch-profiles', async (c) => {
       data: rows.results.map((r: Record<string, unknown>) => ({
         username: r.username,
         display_name: r.display_name,
+        bio: r.bio,
+        job_title: r.job_title,
+        profession: r.profession,
         avatar_r2_key: r.avatar_r2_key,
       })),
     });
@@ -226,7 +408,13 @@ publicRoutes.get('/:username', async (c) => {
       success: true,
       data: {
         verified: !!(owner?.verified),
-        page: { ...page, theme: JSON.parse(page.theme as string), section_order: sectionOrder },
+        page: {
+          ...page,
+          theme: JSON.parse(page.theme as string),
+          section_order: sectionOrder,
+          job_title: page.job_title ?? null,
+          profession: page.profession ?? null,
+        },
         links: links.results.map((l: Record<string, unknown>) => ({
           ...l,
           style_overrides: l.style_overrides ? JSON.parse(l.style_overrides as string) : null,

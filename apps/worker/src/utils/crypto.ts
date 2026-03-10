@@ -1,5 +1,5 @@
 /**
- * Password hashing and JWT utilities using Web Crypto API.
+ * Password hashing, JWT utilities, and AES-GCM encryption using Web Crypto API.
  * No external dependencies — runs natively in Cloudflare Workers.
  */
 
@@ -184,4 +184,51 @@ export async function verifyJwt(
   if (payload.exp < now) return null;
 
   return payload;
+}
+
+// ---------------------------------------------------------------------------
+// AES-GCM symmetric encryption for provider credentials
+// ---------------------------------------------------------------------------
+
+/** Derive a 256-bit AES-GCM key from a raw passphrase via SHA-256. */
+async function deriveAesKey(passphrase: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const raw = await crypto.subtle.digest('SHA-256', encoder.encode(passphrase));
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+/**
+ * Encrypt a plaintext string with AES-GCM.
+ * Returns a hex string: <12-byte IV><ciphertext>.
+ */
+export async function encryptCredential(plaintext: string, passphrase: string): Promise<string> {
+  const key = await deriveAesKey(passphrase);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(plaintext),
+  );
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return bufferToHex(combined.buffer);
+}
+
+/**
+ * Decrypt a hex-encoded AES-GCM ciphertext (produced by encryptCredential).
+ * Returns the original plaintext, or null if decryption fails.
+ */
+export async function decryptCredential(hexCipher: string, passphrase: string): Promise<string | null> {
+  try {
+    const key = await deriveAesKey(passphrase);
+    const combined = new Uint8Array(hexToBuffer(hexCipher));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(plainBuffer);
+  } catch {
+    return null;
+  }
 }

@@ -210,6 +210,8 @@ export interface BioPage {
   theme: Theme;
   section_order: string[] | null;
   is_published: boolean;
+  job_title: string | null;
+  profession: string | null;
   created_at: number;
 }
 
@@ -267,7 +269,7 @@ export interface SocialLink {
   order_num: number;
 }
 
-export type EmbedType = 'youtube' | 'spotify' | 'soundcloud' | 'vimeo' | 'apple-music' | 'tweet' | 'substack';
+export type EmbedType = 'youtube' | 'spotify' | 'soundcloud' | 'vimeo' | 'apple-music' | 'tweet' | 'substack' | 'tidal' | 'bandcamp';
 
 export interface EmbedBlock {
   id: string;
@@ -277,7 +279,7 @@ export interface EmbedBlock {
   order_num: number;
 }
 
-/** Content block system — 18 block types users can add to their page */
+/** Content block system — 19 block types users can add to their page */
 export type ContentBlockType =
   | 'embed'
   | 'microblog'
@@ -296,7 +298,8 @@ export type ContentBlockType =
   | 'booking'
   | 'stats'
   | 'tip-jar'
-  | 'event';
+  | 'event'
+  | 'product-card';
 
 export interface EmbedBlockData {
   embed_type: EmbedType;
@@ -307,20 +310,30 @@ export interface MicroblogPost {
   id: string;
   text: string;
   created_at: number;
+  image_r2_key?: string;
+  link_url?: string;
+  link_title?: string;
+  post_type?: 'update' | 'announcement' | 'milestone';
 }
 
 export interface MicroblogData {
   posts: MicroblogPost[];
+  char_limit?: number;
 }
 
 export interface RichLinkData {
   url: string;
   description: string;
   image_r2_key?: string;
+  image_url?: string;
+  display_mode: 'card' | 'compact' | 'featured';
+  show_favicon: boolean;
 }
 
+export type SocialPostPlatform = 'twitter' | 'tiktok' | 'instagram' | 'bluesky';
+
 export interface SocialPostData {
-  platform: string;
+  platform: SocialPostPlatform | string;
   post_url: string;
   fallback_text?: string;
 }
@@ -334,10 +347,20 @@ export interface GalleryImage {
 export interface ImageGalleryData {
   layout: 'single' | 'carousel' | 'grid';
   images: GalleryImage[];
+  max_images?: number;
+}
+
+export interface CollabItem {
+  username: string;
+  relationship_label?: string;
 }
 
 export interface CollabsData {
-  usernames: string[];
+  /** New format — preferred */
+  items?: CollabItem[];
+  /** Legacy format — kept for backward compat */
+  usernames?: string[];
+  display_style?: 'grid' | 'list';
 }
 
 export interface ScheduleData {
@@ -355,6 +378,7 @@ export interface PollData {
   question: string;
   options: PollOption[];
   closed: boolean;
+  end_date?: string;
 }
 
 export interface TestimonialItem {
@@ -363,16 +387,33 @@ export interface TestimonialItem {
   author: string;
   role?: string;
   avatar_r2_key?: string;
+  source?: 'manual' | 'google' | 'trustpilot' | 'twitter';
+  source_url?: string;
+  rating?: number;
+  imported_at?: number;
 }
 
 export interface TestimonialsData {
   items: TestimonialItem[];
+  autoplay: boolean;
+  autoplay_interval?: number;
+  show_source_badge: boolean;
+  show_rating_stars: boolean;
+  import_source?: 'google' | 'trustpilot';
+  import_url?: string;
+  last_imported_at?: number;
 }
 
 export interface NewsletterData {
   heading: string;
   subtext?: string;
   button_label: string;
+  sync_provider?: 'mailchimp' | 'convertkit' | 'none';
+  mailchimp_audience_id?: string;
+  mailchimp_datacenter?: string;
+  convertkit_form_id?: string;
+  success_message?: string;
+  show_subscriber_count: boolean;
 }
 
 export interface FaqItem {
@@ -383,6 +424,8 @@ export interface FaqItem {
 
 export interface FaqData {
   items: FaqItem[];
+  show_search?: boolean;
+  search_placeholder?: string;
 }
 
 export type QuoteStyle = 'callout' | 'centered' | 'highlight' | 'minimal';
@@ -398,12 +441,26 @@ export interface FileDownloadData {
   filename: string;
   file_size: number;
   button_label?: string;
+  show_download_count?: boolean;
+  count_min_threshold?: number;
 }
 
 export interface CountdownData {
   target_date: string;
   label?: string;
   expired_text?: string;
+  timezone: string;
+  show_visitor_timezone: boolean;
+  recurrence: 'none' | 'weekly' | 'monthly';
+  recurrence_day?: number;
+  recurrence_time?: string;
+  reveal_enabled: boolean;
+  reveal_image_r2_key?: string;
+  reveal_headline?: string;
+  reveal_description?: string;
+  reveal_cta_label?: string;
+  reveal_cta_url?: string;
+  reveal_hide_after_hours?: number;
 }
 
 export interface BookingData {
@@ -411,9 +468,19 @@ export interface BookingData {
   provider?: 'calendly' | 'cal' | 'other';
 }
 
+export type StatSource = 'manual' | 'spotify_followers' | 'youtube_subscribers' | 'instagram_followers';
+
 export interface StatItem {
+  id?: string;
   value: string;
   label: string;
+  prefix?: string;
+  suffix?: string;
+  columns?: 1 | 2 | 3;
+  source?: StatSource;
+  source_url?: string;
+  last_fetched_at?: number;
+  live_value?: string;
 }
 
 export interface StatsData {
@@ -421,11 +488,27 @@ export interface StatsData {
   animate?: boolean;
 }
 
-export type TipJarProvider = 'stripe' | 'kofi' | 'buymeacoffee';
+export type TipJarProvider = 'stripe' | 'kofi' | 'buymeacoffee' | 'paypal' | 'cashapp' | 'venmo';
+
+export interface PaymentOption {
+  id: string;
+  provider: TipJarProvider;
+  url: string;
+  label?: string;
+  suggested_amount?: string;
+}
 
 export interface TipJarData {
-  provider: TipJarProvider;
-  payment_url: string;
+  options?: PaymentOption[];
+  message?: string;
+  goal_enabled?: boolean;
+  goal_label?: string;
+  goal_target?: string;
+  goal_current?: string;
+  goal_show_bar?: boolean;
+  // Keep old fields for backward compat
+  provider?: TipJarProvider;
+  payment_url?: string;
   button_label?: string;
   amount?: string;
 }
@@ -445,6 +528,32 @@ export interface EventData {
   expandable?: boolean;
   details?: string;
   links?: EventLink[];
+  rsvp_enabled?: boolean;
+  rsvp_mode?: 'interested' | 'full' | 'both';
+  rsvp_button_label?: string;
+  rsvp_form_heading?: string;
+  rsvp_success_message?: string;
+  rsvp_cap?: number;
+  show_interested_count?: boolean;
+  interested_count?: number;
+}
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  price?: string;
+  description?: string;
+  image_r2_key?: string;
+  buy_url: string;
+  badge?: string;
+}
+
+export interface ProductCardData {
+  items: ProductItem[];
+  layout: 'grid' | 'list';
+  columns: 1 | 2 | 3;
+  button_label: string;
+  show_price: boolean;
 }
 
 export type ContentBlockData =
@@ -465,7 +574,8 @@ export type ContentBlockData =
   | BookingData
   | StatsData
   | TipJarData
-  | EventData;
+  | EventData
+  | ProductCardData;
 
 export interface ContentBlock {
   id: string;
@@ -503,7 +613,8 @@ export type EventType =
   | 'countdown_view'
   | 'stats_view'
   | 'quote_view'
-  | 'microblog_expand';
+  | 'microblog_expand'
+  | 'product_click';
 
 export interface AnalyticsEvent {
   id: string;

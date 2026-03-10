@@ -4,7 +4,7 @@ import type { BlockRendererProps } from './blockRendererRegistry';
 import type { ImageGalleryData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
 
-function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+function Lightbox({ src, alt, caption, onClose }: { src: string; alt: string; caption?: string; onClose: () => void }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -43,17 +43,29 @@ function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: ()
       >
         <X className="w-5 h-5" />
       </button>
-      <img
-        src={src}
-        alt={alt}
-        className="max-w-full max-h-full object-contain rounded-lg"
+      <div
+        className="relative max-w-full max-h-full"
+        onClick={(e) => e.stopPropagation()}
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? 'scale(1)' : 'scale(0.95)',
           transition: 'opacity 200ms ease, transform 200ms ease',
         }}
-        onClick={(e) => e.stopPropagation()}
-      />
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-[85vh] object-contain rounded-lg"
+        />
+        {caption && (
+          <div
+            className="absolute bottom-0 left-0 right-0 px-4 py-2.5 rounded-b-lg text-sm text-white text-center"
+            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.7))' }}
+          >
+            {caption}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -62,7 +74,7 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as ImageGalleryData;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
-  const [lightboxSrc, setLightboxSrc] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<{ src: string; alt: string; caption?: string } | null>(null);
   const trackedRef = useRef(false);
   const touchStartRef = useRef<number | null>(null);
 
@@ -103,9 +115,9 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
     touchStartRef.current = null;
   }
 
-  function openLightbox(r2_key: string, alt: string) {
+  function openLightbox(r2_key: string, alt: string, caption?: string) {
     handleView();
-    setLightboxSrc({ src: `/api/public/file/${r2_key}`, alt });
+    setLightboxSrc({ src: `/api/public/file/${r2_key}`, alt, caption });
   }
 
   if (!data.images?.length) return null;
@@ -116,7 +128,7 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
       <>
         <div
           className="scroll-reveal my-6 rounded-xl overflow-hidden cursor-pointer"
-          onClick={() => openLightbox(img.r2_key, img.alt || '')}
+          onClick={() => openLightbox(img.r2_key, img.alt || '', img.caption)}
         >
           <img
             src={`/api/public/file/${img.r2_key}`}
@@ -145,7 +157,7 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
         >
           <div
             className="cursor-pointer"
-            onClick={() => openLightbox(img.r2_key, img.alt || '')}
+            onClick={() => openLightbox(img.r2_key, img.alt || '', img.caption)}
           >
             <img
               src={`/api/public/file/${img.r2_key}`}
@@ -209,7 +221,7 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
           <div
             key={img.r2_key}
             className="aspect-square overflow-hidden cursor-pointer group"
-            onClick={() => openLightbox(img.r2_key, img.alt || '')}
+            onClick={() => openLightbox(img.r2_key, img.alt || '', img.caption)}
           >
             <img
               src={`/api/public/file/${img.r2_key}`}

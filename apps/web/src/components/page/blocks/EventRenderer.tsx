@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Calendar, ChevronDown, ExternalLink } from 'lucide-react';
+import { Calendar, ChevronDown, ExternalLink, Heart, Users } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { EventData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
@@ -51,6 +51,12 @@ function generateIcsUrl(data: EventData): string {
     'END:VCALENDAR',
   ];
   return `data:text/calendar;charset=utf8,${encodeURIComponent(lines.join('\r\n'))}`;
+}
+
+/* ── Cookie helper ───────────────────────────────────────────── */
+
+function hasCookie(name: string): boolean {
+  return document.cookie.split(';').some((c) => c.trim().startsWith(`${name}=`));
 }
 
 /* ── Date Badge with countdown hover/tap ────────────────────── */
@@ -149,6 +155,101 @@ function DateBadge({ dateStr }: { dateStr: string }) {
   );
 }
 
+/* ── RSVP Form ──────────────────────────────────────────────── */
+
+function RsvpForm({
+  blockId,
+  data,
+  onSuccess,
+}: {
+  blockId: string;
+  data: EventData;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.includes('@')) { setError('Please enter a valid email.'); return; }
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/public/event/${blockId}/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name || undefined, email }),
+      });
+      const json = await res.json() as { success: boolean; error?: string };
+      if (json.success) {
+        setDone(true);
+        onSuccess();
+      } else {
+        setError(json.error || 'Could not submit RSVP.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p className="text-xs font-medium text-center py-2" style={{ color: 'var(--page-accent)' }}>
+        {data.rsvp_success_message || "You're on the list!"}
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      {data.rsvp_form_heading && (
+        <p className="text-xs font-semibold" style={{ color: 'var(--page-text)' }}>
+          {data.rsvp_form_heading}
+        </p>
+      )}
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Your name (optional)"
+        className="w-full px-3 py-2 rounded-lg text-xs"
+        style={{
+          background: 'rgba(128,128,128,0.08)',
+          border: '1px solid rgba(128,128,128,0.2)',
+          color: 'var(--page-text)',
+        }}
+      />
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="your@email.com"
+        required
+        className="w-full px-3 py-2 rounded-lg text-xs"
+        style={{
+          background: 'rgba(128,128,128,0.08)',
+          border: '1px solid rgba(128,128,128,0.2)',
+          color: 'var(--page-text)',
+        }}
+      />
+      {error && <p className="text-[11px] text-red-500">{error}</p>}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full py-2 rounded-lg text-xs font-bold transition-opacity duration-200"
+        style={{ background: 'var(--page-accent)', color: 'var(--page-bg)', opacity: submitting ? 0.7 : 1 }}
+      >
+        {submitting ? 'Submitting...' : (data.rsvp_button_label || 'RSVP Now')}
+      </button>
+    </form>
+  );
+}
+
 /* ── Main Renderer ──────────────────────────────────────────── */
 
 export function EventRenderer({ block, pageId }: BlockRendererProps) {
@@ -157,6 +258,16 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
   const detailsRef = useRef<HTMLDivElement>(null);
   const [detailsHeight, setDetailsHeight] = useState(0);
 
+  // RSVP state
+  const cookieName = `event_interested_${block.id}`;
+  const [alreadyInterested, setAlreadyInterested] = useState(false);
+  const [interestedCount, setInterestedCount] = useState(data.interested_count || 0);
+  const [markingInterested, setMarkingInterested] = useState(false);
+
+  useEffect(() => {
+    setAlreadyInterested(hasCookie(cookieName));
+  }, [cookieName]);
+
   if (!data.event_name || !data.event_date) return null;
 
   const isPast = new Date(data.event_date).getTime() < Date.now();
@@ -164,6 +275,12 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
   const hasImage = !!data.image_r2_key;
   const eventLinks = data.links?.filter((l) => l.label && l.url) ?? [];
   const hasExpandableContent = data.expandable && (!!data.details || eventLinks.length > 0);
+
+  const rsvpEnabled = data.rsvp_enabled && !isPast;
+  const rsvpMode = data.rsvp_mode || 'interested';
+  const showInterestedBtn = rsvpEnabled && (rsvpMode === 'interested' || rsvpMode === 'both');
+  const showRsvpForm = rsvpEnabled && (rsvpMode === 'full' || rsvpMode === 'both');
+  const showInterestedCount = (data.show_interested_count !== false) && interestedCount > 0;
 
   function handleTicketClick() {
     if (pageId) trackEvent(pageId, 'event_ticket_click', { blockId: block.id });
@@ -184,6 +301,27 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
       if (pageId) trackEvent(pageId, 'event_expand', { blockId: block.id });
     }
     setExpanded(!expanded);
+  }
+
+  async function handleInterested() {
+    if (alreadyInterested || markingInterested) return;
+    setMarkingInterested(true);
+    // Optimistic update
+    setInterestedCount((c) => c + 1);
+    setAlreadyInterested(true);
+    try {
+      const res = await fetch(`/api/public/event/${block.id}/interested`, { method: 'POST' });
+      const json = await res.json() as { interested_count?: number };
+      if (json.interested_count !== undefined) {
+        setInterestedCount(json.interested_count);
+      }
+    } catch {
+      // rollback optimistic update
+      setInterestedCount((c) => Math.max(0, c - 1));
+      setAlreadyInterested(false);
+    } finally {
+      setMarkingInterested(false);
+    }
   }
 
   return (
@@ -247,6 +385,17 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
               Past event
             </span>
           )}
+
+          {/* Interested count */}
+          {showInterestedCount && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <Users className="w-3 h-3" style={{ color: 'var(--page-text)', opacity: 0.4 }} />
+              <span className="text-[11px]" style={{ color: 'var(--page-text)', opacity: 0.5 }}>
+                {interestedCount} {interestedCount === 1 ? 'person' : 'people'} interested
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             {!isPast && data.ticket_url && (
               <a
@@ -272,6 +421,21 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
                 Add to calendar
               </a>
             )}
+            {showInterestedBtn && (
+              <button
+                onClick={handleInterested}
+                disabled={alreadyInterested || markingInterested}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold transition-all duration-200 px-2.5 py-1 rounded-full"
+                style={{
+                  background: alreadyInterested ? 'var(--page-accent)' : 'rgba(128,128,128,0.1)',
+                  color: alreadyInterested ? 'var(--page-bg)' : 'var(--page-text)',
+                  opacity: markingInterested ? 0.7 : 1,
+                }}
+              >
+                <Heart className={`w-3 h-3 ${alreadyInterested ? 'fill-current' : ''}`} />
+                {alreadyInterested ? "I'm Interested" : "I'm Interested"}
+              </button>
+            )}
             {hasExpandableContent && (
               <button
                 onClick={toggleExpand}
@@ -291,6 +455,16 @@ export function EventRenderer({ block, pageId }: BlockRendererProps) {
           </div>
         </div>
       </div>
+
+      {/* RSVP Form section */}
+      {showRsvpForm && (
+        <div
+          className="px-4 pb-4 pt-3"
+          style={{ borderTop: '1px solid rgba(128,128,128,0.1)' }}
+        >
+          <RsvpForm blockId={block.id} data={data} onSuccess={() => {}} />
+        </div>
+      )}
 
       {/* Expandable details + links */}
       {hasExpandableContent && (

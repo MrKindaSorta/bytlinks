@@ -17,6 +17,7 @@ import { BookingRenderer } from './BookingRenderer';
 import { StatsRenderer } from './StatsRenderer';
 import { TipJarRenderer } from './TipJarRenderer';
 import { EventRenderer } from './EventRenderer';
+import { ProductCardRenderer } from './ProductCardRenderer';
 
 export interface BlockRendererProps {
   block: ContentBlock;
@@ -42,4 +43,5 @@ export const blockRendererRegistry: Record<ContentBlockType, React.FC<BlockRende
   'stats': StatsRenderer,
   'tip-jar': TipJarRenderer,
   'event': EventRenderer,
+  'product-card': ProductCardRenderer,
 };

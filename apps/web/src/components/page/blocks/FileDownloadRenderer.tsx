@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { FileText, FileCode, Image, Music, Video, Download } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { FileDownloadData } from '@bytlinks/shared';
@@ -23,6 +24,20 @@ function getFileIcon(filename: string) {
 
 export function FileDownloadRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as FileDownloadData;
+  const [downloadCount, setDownloadCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!data.show_download_count) return;
+    fetch(`/api/public/block/${block.id}/download-count`)
+      .then((r) => r.json() as Promise<{ count: number | null }>)
+      .then((res) => {
+        if (typeof res.count === 'number') {
+          setDownloadCount(res.count);
+        }
+      })
+      .catch(() => {});
+  }, [block.id, data.show_download_count]);
+
   if (!data.r2_key) return null;
 
   const Icon = getFileIcon(data.filename || '');
@@ -66,6 +81,14 @@ export function FileDownloadRenderer({ block, pageId }: BlockRendererProps) {
           style={{ color: 'var(--page-text)', opacity: 0.4 }}
         />
       </a>
+      {downloadCount !== null && (
+        <p
+          className="text-[11px] mt-1.5 text-center"
+          style={{ color: 'var(--page-text)', opacity: 0.5 }}
+        >
+          ↓ {downloadCount.toLocaleString()} downloads
+        </p>
+      )}
     </div>
   );
 }

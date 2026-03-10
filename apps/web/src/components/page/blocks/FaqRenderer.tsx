@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { FaqData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
@@ -59,8 +59,18 @@ function FaqItem({ question, answer, isOpen, onToggle }: {
 export function FaqRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as FaqData;
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   if (!data.items?.length) return null;
+
+  const showSearch = data.show_search && data.items.length > 5;
+
+  const filteredItems = showSearch && searchQuery.trim()
+    ? data.items.filter((item) => {
+        const q = searchQuery.toLowerCase();
+        return item.question.toLowerCase().includes(q) || item.answer.toLowerCase().includes(q);
+      })
+    : data.items;
 
   function toggle(id: string) {
     setOpenIds((prev) => {
@@ -88,15 +98,43 @@ export function FaqRenderer({ block, pageId }: BlockRendererProps) {
           {block.title}
         </h3>
       )}
-      {data.items.map((item) => (
-        <FaqItem
-          key={item.id}
-          question={item.question}
-          answer={item.answer}
-          isOpen={openIds.has(item.id)}
-          onToggle={() => toggle(item.id)}
-        />
-      ))}
+      {showSearch && (
+        <div className="relative mt-2 mb-3">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+            style={{ color: 'var(--page-text)', opacity: 0.4 }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={data.search_placeholder || 'Search questions…'}
+            className="w-full pl-8 pr-3 py-2 rounded-lg text-sm bg-transparent border focus:outline-none"
+            style={{
+              color: 'var(--page-text)',
+              borderColor: 'var(--page-surface-alt, rgba(128,128,128,0.2))',
+            }}
+          />
+        </div>
+      )}
+      {filteredItems.length > 0 ? (
+        filteredItems.map((item) => (
+          <FaqItem
+            key={item.id}
+            question={item.question}
+            answer={item.answer}
+            isOpen={openIds.has(item.id)}
+            onToggle={() => toggle(item.id)}
+          />
+        ))
+      ) : (
+        <p
+          className="text-sm py-4 text-center"
+          style={{ color: 'var(--page-text)', opacity: 0.5 }}
+        >
+          No results for &ldquo;{searchQuery}&rdquo;
+        </p>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import { useBlocks } from '../../../hooks/useBlocks';
 import type { BlockEditorProps } from './blockEditorRegistry';
 import type { PollData, PollOption } from '@bytlinks/shared';
@@ -10,10 +10,20 @@ export function PollEditor({ block }: BlockEditorProps) {
   const [question, setQuestion] = useState(data.question || '');
   const [options, setOptions] = useState<PollOption[]>(data.options || []);
   const [closed, setClosed] = useState(data.closed || false);
+  const [endDate, setEndDate] = useState(data.end_date || '');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   function save(updates: Partial<PollData>) {
-    editBlock(block.id, { data: { question, options, closed, ...updates } });
+    editBlock(block.id, {
+      data: {
+        question,
+        options,
+        closed,
+        end_date: endDate || undefined,
+        ...updates,
+      },
+    });
   }
 
   function updateOption(index: number, text: string) {
@@ -105,15 +115,6 @@ export function PollEditor({ block }: BlockEditorProps) {
         >
           <Plus className="w-3.5 h-3.5" /> Add option
         </button>
-        <label className="flex items-center gap-1.5 font-body text-xs text-brand-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={closed}
-            onChange={(e) => { setClosed(e.target.checked); save({ closed: e.target.checked }); }}
-            className="rounded border-brand-border accent-brand-accent"
-          />
-          Closed
-        </label>
       </div>
       {totalVotes > 0 && (
         <div className="flex items-center justify-between pt-1 border-t border-brand-border">
@@ -146,6 +147,67 @@ export function PollEditor({ block }: BlockEditorProps) {
           )}
         </div>
       )}
+
+      {/* Poll Settings section */}
+      <div className="border border-brand-border rounded-lg overflow-hidden">
+        <button
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-brand-surface-alt hover:bg-brand-surface transition-colors duration-150"
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="w-3.5 h-3.5 text-brand-text-muted" />
+            <span className="font-body text-xs font-medium text-brand-text-secondary">Poll Settings</span>
+          </div>
+          {settingsOpen ? (
+            <ChevronUp className="w-3.5 h-3.5 text-brand-text-muted" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-brand-text-muted" />
+          )}
+        </button>
+
+        {settingsOpen && (
+          <div className="p-3 space-y-3">
+            {/* Close poll toggle */}
+            <label className="flex items-center justify-between font-body text-xs text-brand-text-secondary cursor-pointer">
+              <span>Close poll (stop accepting votes)</span>
+              <input
+                type="checkbox"
+                checked={closed}
+                onChange={(e) => {
+                  setClosed(e.target.checked);
+                  save({ closed: e.target.checked });
+                }}
+                className="rounded border-brand-border accent-brand-accent"
+              />
+            </label>
+
+            {/* End date picker */}
+            <div className="space-y-1">
+              <label className="font-body text-[11px] text-brand-text-muted">
+                Auto-close date (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                onBlur={() => save({ end_date: endDate || undefined })}
+                className="w-full px-3 py-1.5 rounded-md border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+              />
+              {endDate && (
+                <button
+                  onClick={() => {
+                    setEndDate('');
+                    save({ end_date: undefined });
+                  }}
+                  className="font-body text-[11px] text-brand-text-muted hover:text-red-500 transition-colors duration-150"
+                >
+                  Clear end date
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

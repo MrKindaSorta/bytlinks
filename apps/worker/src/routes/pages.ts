@@ -116,6 +116,8 @@ pageRoutes.put('/me', async (c) => {
     theme?: Record<string, unknown>;
     show_branding?: boolean;
     section_order?: string[];
+    job_title?: string;
+    profession?: string;
   }>();
 
   try {
@@ -157,6 +159,14 @@ pageRoutes.put('/me', async (c) => {
     if (body.section_order !== undefined) {
       updates.push('section_order = ?');
       values.push(JSON.stringify(body.section_order));
+    }
+    if (body.job_title !== undefined) {
+      updates.push('job_title = ?');
+      values.push(body.job_title);
+    }
+    if (body.profession !== undefined) {
+      updates.push('profession = ?');
+      values.push(body.profession);
     }
 
     if (updates.length === 0) {

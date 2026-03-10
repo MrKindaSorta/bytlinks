@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Trash2, Image, Plus, ExternalLink } from 'lucide-react';
+import { Upload, Trash2, Image, Plus, ExternalLink, ChevronDown } from 'lucide-react';
 import { useBlocks } from '../../../hooks/useBlocks';
 import type { BlockEditorProps } from './blockEditorRegistry';
 import type { EventData, EventLink } from '@bytlinks/shared';
@@ -19,6 +19,16 @@ export function EventEditor({ block }: BlockEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
 
+  // RSVP state
+  const [rsvpEnabled, setRsvpEnabled] = useState(data.rsvp_enabled || false);
+  const [rsvpOpen, setRsvpOpen] = useState(false);
+  const [rsvpMode, setRsvpMode] = useState<'interested' | 'full' | 'both'>(data.rsvp_mode || 'interested');
+  const [rsvpButtonLabel, setRsvpButtonLabel] = useState(data.rsvp_button_label || '');
+  const [rsvpFormHeading, setRsvpFormHeading] = useState(data.rsvp_form_heading || '');
+  const [rsvpSuccessMessage, setRsvpSuccessMessage] = useState(data.rsvp_success_message || '');
+  const [rsvpCap, setRsvpCap] = useState(data.rsvp_cap != null ? String(data.rsvp_cap) : '');
+  const [showInterestedCount, setShowInterestedCount] = useState(data.show_interested_count !== false);
+
   function currentData(): EventData {
     return {
       ...data,
@@ -30,6 +40,13 @@ export function EventEditor({ block }: BlockEditorProps) {
       expandable,
       details,
       links,
+      rsvp_enabled: rsvpEnabled,
+      rsvp_mode: rsvpMode,
+      rsvp_button_label: rsvpButtonLabel || undefined,
+      rsvp_form_heading: rsvpFormHeading || undefined,
+      rsvp_success_message: rsvpSuccessMessage || undefined,
+      rsvp_cap: rsvpCap ? parseInt(rsvpCap, 10) : undefined,
+      show_interested_count: showInterestedCount,
     };
   }
 
@@ -67,6 +84,12 @@ export function EventEditor({ block }: BlockEditorProps) {
     const next = !expandable;
     setExpandable(next);
     save({ expandable: next });
+  }
+
+  function toggleRsvpEnabled() {
+    const next = !rsvpEnabled;
+    setRsvpEnabled(next);
+    save({ rsvp_enabled: next });
   }
 
   /* ── Link management ── */
@@ -250,6 +273,143 @@ export function EventEditor({ block }: BlockEditorProps) {
                 Add link
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RSVP Settings */}
+      <div className="rounded-lg border border-brand-border overflow-hidden">
+        <button
+          type="button"
+          onClick={() => {
+            if (!rsvpEnabled) {
+              toggleRsvpEnabled();
+              setRsvpOpen(true);
+            } else {
+              setRsvpOpen((o) => !o);
+            }
+          }}
+          className="w-full flex items-center justify-between px-3 py-2.5 bg-brand-surface-alt hover:bg-brand-surface-alt/80 transition-colors duration-150"
+        >
+          <span className="font-body text-xs font-medium text-brand-text">RSVP Settings</span>
+          <div className="flex items-center gap-2">
+            <div
+              role="switch"
+              aria-checked={rsvpEnabled}
+              onClick={(e) => { e.stopPropagation(); toggleRsvpEnabled(); if (!rsvpEnabled) setRsvpOpen(true); }}
+              className={`relative w-8 h-[18px] rounded-full transition-colors duration-200 ${
+                rsvpEnabled ? 'bg-brand-accent' : 'bg-brand-border'
+              }`}
+            >
+              <span
+                className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white
+                           transition-transform duration-200 ${rsvpEnabled ? 'translate-x-[14px]' : ''}`}
+              />
+            </div>
+            <ChevronDown
+              className="w-3.5 h-3.5 text-brand-text-muted"
+              style={{
+                transform: rsvpOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 200ms ease',
+              }}
+            />
+          </div>
+        </button>
+        <div
+          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+          style={{ maxHeight: rsvpOpen ? '600px' : '0px' }}
+        >
+          <div className="px-3 py-3 border-t border-brand-border space-y-3">
+            {/* Mode */}
+            <div>
+              <label className="font-body text-xs font-medium text-brand-text-secondary mb-1 block">Mode</label>
+              <select
+                value={rsvpMode}
+                onChange={(e) => {
+                  const v = e.target.value as 'interested' | 'full' | 'both';
+                  setRsvpMode(v);
+                  save({ rsvp_mode: v });
+                }}
+                className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text focus:outline-none focus:border-brand-accent"
+              >
+                <option value="interested">Interested only (no form)</option>
+                <option value="full">Full RSVP form (name + email)</option>
+                <option value="both">Both — interested + RSVP form</option>
+              </select>
+            </div>
+
+            {/* Button label */}
+            <input
+              type="text"
+              value={rsvpButtonLabel}
+              onChange={(e) => setRsvpButtonLabel(e.target.value)}
+              onBlur={() => save({ rsvp_button_label: rsvpButtonLabel || undefined })}
+              placeholder="RSVP button label (e.g. 'Register Free')"
+              className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+            />
+
+            {/* Form heading */}
+            {(rsvpMode === 'full' || rsvpMode === 'both') && (
+              <input
+                type="text"
+                value={rsvpFormHeading}
+                onChange={(e) => setRsvpFormHeading(e.target.value)}
+                onBlur={() => save({ rsvp_form_heading: rsvpFormHeading || undefined })}
+                placeholder="Form heading (e.g. 'Reserve your spot')"
+                className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+              />
+            )}
+
+            {/* Success message */}
+            <input
+              type="text"
+              value={rsvpSuccessMessage}
+              onChange={(e) => setRsvpSuccessMessage(e.target.value)}
+              onBlur={() => save({ rsvp_success_message: rsvpSuccessMessage || undefined })}
+              placeholder="Success message (e.g. 'You're in!')"
+              className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+            />
+
+            {/* Cap */}
+            <div>
+              <label className="font-body text-xs text-brand-text-muted mb-1 block">
+                Max attendees (optional)
+              </label>
+              <input
+                type="number"
+                value={rsvpCap}
+                onChange={(e) => setRsvpCap(e.target.value)}
+                onBlur={() => save({ rsvp_cap: rsvpCap ? parseInt(rsvpCap, 10) : undefined })}
+                placeholder="e.g. 100"
+                min={1}
+                className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+              />
+            </div>
+
+            {/* Show interested count toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showInterestedCount;
+                setShowInterestedCount(next);
+                save({ show_interested_count: next });
+              }}
+              className="w-full flex items-center justify-between"
+            >
+              <span className="font-body text-xs text-brand-text-muted">Show interested count</span>
+              <div
+                role="switch"
+                aria-checked={showInterestedCount}
+                className={`relative w-8 h-[18px] rounded-full transition-colors duration-200 ${
+                  showInterestedCount ? 'bg-brand-accent' : 'bg-brand-border'
+                }`}
+              >
+                <span
+                  className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white
+                             transition-transform duration-200 ${showInterestedCount ? 'translate-x-[14px]' : ''}`}
+                />
+              </div>
+            </button>
           </div>
         </div>
       </div>

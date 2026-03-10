@@ -30,6 +30,75 @@ blockRoutes.get('/og', async (c) => {
 });
 
 /**
+ * GET /api/blocks/oembed?url=<encoded> — fetch oEmbed data for social posts
+ */
+blockRoutes.get('/oembed', async (c) => {
+  const url = c.req.query('url');
+  if (!url) return c.json({ success: false, error: 'url param is required' }, 400);
+
+  try { new URL(url); } catch { return c.json({ success: false, error: 'Invalid URL' }, 400); }
+
+  // Detect platform
+  let platform: string | null = null;
+  if (/twitter\.com|x\.com/.test(url)) platform = 'twitter';
+  else if (/tiktok\.com/.test(url)) platform = 'tiktok';
+  else if (/bsky\.app/.test(url)) platform = 'bluesky';
+  else if (/instagram\.com/.test(url)) platform = 'instagram';
+
+  if (!platform) return c.json({ success: false, error: 'Unsupported platform' }, 400);
+
+  // Check D1 cache
+  try {
+    const cached = await c.env.DB.prepare(
+      'SELECT html, platform FROM oembed_cache WHERE url = ? AND cached_at > ?'
+    ).bind(url, Math.floor(Date.now() / 1000) - 86400).first<{ html: string | null; platform: string }>();
+
+    if (cached) {
+      return c.json({ success: true, data: { platform: cached.platform, html: cached.html, url } });
+    }
+  } catch {
+    // cache miss — proceed
+  }
+
+  // Instagram: return fallback (no API without app review)
+  // TODO: Implement Instagram oEmbed when Meta app approval is obtained
+  if (platform === 'instagram') {
+    return c.json({ success: true, data: { platform: 'instagram', fallback: true, url } });
+  }
+
+  // Fetch oEmbed
+  let oembedUrl: string;
+  if (platform === 'twitter') {
+    oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&dnt=true&theme=dark`;
+  } else if (platform === 'tiktok') {
+    oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+  } else {
+    oembedUrl = `https://embed.bsky.app/oembed?url=${encodeURIComponent(url)}`;
+  }
+
+  try {
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return c.json({ success: true, data: { platform, fallback: true, url } });
+
+    const data = await res.json() as { html?: string };
+    const html = data.html || null;
+
+    // Cache in D1
+    try {
+      await c.env.DB.prepare(
+        'INSERT OR REPLACE INTO oembed_cache (url, platform, html, cached_at) VALUES (?, ?, ?, ?)'
+      ).bind(url, platform, html, Math.floor(Date.now() / 1000)).run();
+    } catch {
+      // cache write failure is non-critical
+    }
+
+    return c.json({ success: true, data: { platform, html, url } });
+  } catch {
+    return c.json({ success: true, data: { platform, fallback: true, url } });
+  }
+});
+
+/**
  * GET /api/blocks — list all content blocks for user's page
  */
 blockRoutes.get('/', async (c) => {
@@ -172,6 +241,13 @@ blockRoutes.put('/:id', async (c) => {
       values.push(body.title);
     }
     if (body.data !== undefined) {
+      // Server-side validation: enforce image gallery limit
+      if (body.data && Array.isArray((body.data as Record<string, unknown>).images)) {
+        const images = (body.data as Record<string, unknown>).images as unknown[];
+        if (images.length > 20) {
+          return c.json({ success: false, error: 'Maximum 20 images allowed' }, 400);
+        }
+      }
       updates.push('data = ?');
       values.push(JSON.stringify(body.data));
     }

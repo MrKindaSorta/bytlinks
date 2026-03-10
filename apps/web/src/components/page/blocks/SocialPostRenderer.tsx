@@ -10,10 +10,8 @@ declare global {
 }
 
 function detectTheme(): 'light' | 'dark' {
-  // Read theme from page context — check computed background luminance
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--page-bg').trim();
   if (!bg) return 'dark';
-  // Simple heuristic: if the background starts with a dark color
   if (bg.startsWith('#')) {
     const hex = bg.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
@@ -23,6 +21,53 @@ function detectTheme(): 'light' | 'dark' {
     return luminance < 0.5 ? 'dark' : 'light';
   }
   return 'dark';
+}
+
+function Skeleton() {
+  return (
+    <div
+      className="rounded-xl animate-pulse"
+      style={{
+        background: 'var(--page-surface-alt, rgba(128,128,128,0.08))',
+        minHeight: '300px',
+      }}
+    />
+  );
+}
+
+function BlueskyEmbed({ url, onLoad }: { url: string; onLoad: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/blocks/oembed?url=${encodeURIComponent(url)}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.html) {
+          setHtml(json.data.html);
+          onLoad();
+        } else {
+          onLoad();
+        }
+      })
+      .catch(() => onLoad());
+  }, [url]);
+
+  if (html) {
+    return <div ref={ref} dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm underline"
+      style={{ color: 'var(--page-accent)' }}
+    >
+      View on Bluesky
+    </a>
+  );
 }
 
 function TikTokEmbed({ url, fallbackText }: { url: string; fallbackText?: string }) {
@@ -39,7 +84,6 @@ function TikTokEmbed({ url, fallbackText }: { url: string; fallbackText?: string
     }
   }, [url]);
 
-  // Extract video ID from TikTok URL
   const videoIdMatch = url.match(/\/video\/(\d+)/);
   const videoId = videoIdMatch ? videoIdMatch[1] : null;
 
@@ -73,7 +117,7 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
   const data = block.data as SocialPostData;
   const containerRef = useRef<HTMLDivElement>(null);
   const trackedRef = useRef(false);
-  const [twitterLoaded, setTwitterLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   function handleClick() {
     if (trackedRef.current || !pageId) return;
@@ -95,32 +139,30 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
         window.twttr.widgets.load(containerRef.current);
       }
 
-      // Detect when Twitter widget iframe appears
       const container = containerRef.current;
       const observer = new MutationObserver(() => {
         if (container.querySelector('iframe.twitter-tweet-rendered, .twitter-tweet iframe')) {
-          setTwitterLoaded(true);
+          setLoaded(true);
           observer.disconnect();
         }
       });
       observer.observe(container, { childList: true, subtree: true });
-      // Fallback timeout
-      const timeout = setTimeout(() => { setTwitterLoaded(true); observer.disconnect(); }, 4000);
+      const timeout = setTimeout(() => { setLoaded(true); observer.disconnect(); }, 4000);
       return () => { observer.disconnect(); clearTimeout(timeout); };
     }
   }, [data.post_url, data.platform]);
 
   if (!data.post_url) return null;
 
+  // Twitter/X
   if (data.platform === 'twitter') {
     const theme = detectTheme();
     return (
-      <div className="scroll-reveal my-6 relative" ref={containerRef} onClick={handleClick} style={{ minHeight: twitterLoaded ? undefined : 250 }}>
-        {!twitterLoaded && (
-          <div
-            className="absolute inset-0 rounded-xl animate-pulse"
-            style={{ background: 'var(--page-surface-alt, rgba(128,128,128,0.08))' }}
-          />
+      <div className="scroll-reveal my-6 relative" ref={containerRef} onClick={handleClick} style={{ minHeight: loaded ? undefined : '300px' }}>
+        {!loaded && (
+          <div className="absolute inset-0">
+            <Skeleton />
+          </div>
         )}
         <blockquote className="twitter-tweet" data-theme={theme}>
           <a href={data.post_url}>{data.fallback_text || 'Loading tweet...'}</a>
@@ -129,42 +171,53 @@ export function SocialPostRenderer({ block, pageId }: BlockRendererProps) {
     );
   }
 
+  // TikTok
   if (data.platform === 'tiktok') {
     return (
-      <div className="scroll-reveal my-6" onClick={handleClick}>
+      <div className="scroll-reveal my-6" onClick={handleClick} style={{ minHeight: '300px' }}>
         <TikTokEmbed url={data.post_url} fallbackText={data.fallback_text} />
       </div>
     );
   }
 
-  // Instagram and other platforms — fallback with styled link card
+  // Bluesky
+  if (data.platform === 'bluesky') {
+    return (
+      <div className="scroll-reveal my-6" onClick={handleClick} style={{ minHeight: loaded ? undefined : '300px' }}>
+        {!loaded && <Skeleton />}
+        <div style={{ opacity: loaded ? 1 : 0, transition: 'opacity 300ms ease' }}>
+          <BlueskyEmbed url={data.post_url} onLoad={() => setLoaded(true)} />
+        </div>
+      </div>
+    );
+  }
+
+  // Instagram and unknown — styled link card fallback
+  const platformLabel = data.platform === 'instagram' ? 'Instagram' : data.platform || 'Social';
+  const platformInitial = data.platform === 'instagram' ? 'IG' : data.platform?.charAt(0)?.toUpperCase() || '?';
+
   return (
     <a
       href={data.post_url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className="scroll-reveal my-6 block rounded-xl px-4 py-3"
-      style={{
-        background: 'var(--page-surface-alt, rgba(128,128,128,0.05))',
-        transition: 'transform 200ms ease',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.01)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+      className="scroll-reveal my-6 block rounded-xl px-4 py-3 transition-all duration-200 hover:translate-y-[-1px]"
+      style={{ background: 'var(--page-surface-alt, rgba(128,128,128,0.05))' }}
     >
       <div className="flex items-center gap-2">
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
           style={{ background: 'var(--page-accent)', color: 'var(--page-bg)', opacity: 0.9 }}
         >
-          {data.platform === 'instagram' ? 'IG' : data.platform?.charAt(0)?.toUpperCase() || '?'}
+          {platformInitial}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: 'var(--page-text)' }}>
-            {data.fallback_text || `View post on ${data.platform}`}
+            {data.fallback_text || `View on ${platformLabel}`}
           </p>
-          <p className="text-[11px] capitalize" style={{ color: 'var(--page-accent)', opacity: 0.7 }}>
-            {data.platform}
+          <p className="text-[11px]" style={{ color: 'var(--page-accent)', opacity: 0.7 }}>
+            {platformLabel}
           </p>
         </div>
       </div>
