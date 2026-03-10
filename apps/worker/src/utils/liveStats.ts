@@ -146,34 +146,40 @@ function safeParseApiError(body: string): string | null {
   }
 }
 
-// NOTE: scrape-based, may break if Instagram changes their page structure
+// NOTE: Uses Instagram's web profile API — may break if Instagram changes their endpoints
 export async function fetchInstagramFollowers(
   profileUrl: string
 ): Promise<{ value: string } | { error: string }> {
   const match = profileUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)/);
   if (!match) return { error: 'Invalid Instagram profile URL' };
 
+  const username = match[1];
+
   try {
-    const res = await fetch(`https://www.instagram.com/${match[1]}/`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BytLinksBot/1.0)',
-        Accept: 'text/html',
-      },
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await fetch(
+      `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
+      {
+        headers: {
+          'User-Agent': 'Instagram 275.0.0.27.98 Android',
+          'X-IG-App-ID': '936619743392459',
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
 
-    if (!res.ok) return { error: 'Failed to fetch Instagram profile' };
+    if (!res.ok) {
+      if (res.status === 404) return { error: `Instagram user "${username}" not found` };
+      return { error: `Instagram API error (${res.status})` };
+    }
 
-    const html = await res.text();
-    // Try meta tag: <meta property="og:description" content="X Followers, Y Following, Z Posts ...">
-    const ogMatch = html.match(/content="([\d,.]+[KkMm]?)\s+Followers/i);
-    if (ogMatch) return { value: ogMatch[1] };
+    const data = await res.json() as {
+      data?: { user?: { edge_followed_by?: { count?: number } } }
+    };
 
-    // Try JSON-LD or other patterns
-    const jsonMatch = html.match(/"edge_followed_by":\s*\{\s*"count":\s*(\d+)/);
-    if (jsonMatch) return { value: parseInt(jsonMatch[1], 10).toLocaleString() };
+    const count = data?.data?.user?.edge_followed_by?.count;
+    if (count == null) return { error: 'Could not extract follower count' };
 
-    return { error: 'Could not extract follower count' };
+    return { value: count.toLocaleString() };
   } catch {
     return { error: 'Failed to fetch Instagram profile' };
   }
