@@ -26,6 +26,16 @@ export function MyCardsSection() {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Close settings on Escape
+  useEffect(() => {
+    if (!showSettings) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowSettings(false);
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [showSettings]);
+
   const username = page?.username ?? '';
   const cardPageUrl = `https://www.bytlinks.com/${username}/card`;
   const profileUrl = `https://www.bytlinks.com/${username}`;
@@ -353,10 +363,10 @@ export function MyCardsSection() {
                   </button>
                   <button
                     onClick={() => setShowSettings(true)}
-                    className="flex items-center justify-center gap-1.5 font-body text-xs lg:text-sm font-semibold px-3 py-2.5 lg:py-3 rounded-xl border border-brand-border bg-brand-surface text-brand-text transition-colors duration-fast hover:bg-brand-surface-alt lg:hidden"
+                    className="flex items-center justify-center gap-1.5 font-body text-xs lg:text-sm font-semibold px-3 py-2.5 lg:py-3 rounded-xl border border-brand-border bg-brand-surface text-brand-text transition-colors duration-fast hover:bg-brand-surface-alt"
                   >
                     <Settings2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Edit</span>
+                    <span className="hidden sm:inline">Settings</span>
                   </button>
                 </div>
 
@@ -368,42 +378,23 @@ export function MyCardsSection() {
                 {error && <p className="mt-2 text-center text-xs text-red-500">{error}</p>}
               </div>
 
-              {/* Desktop: inline settings panel */}
-              {activeCard && (
-                <div className="hidden lg:block px-0 mt-6 lg:pb-10">
-                  <CardSettings
-                    card={activeCard}
-                    cards={cards}
-                    page={page}
-                    user={user}
-                    saving={saving}
-                    error={error}
-                    onToggleField={toggleField}
-                    onLabelChange={handleLabelChange}
-                    onLabelBlur={handleLabelBlur}
-                    onToggleQrTarget={toggleQrTarget}
-                    onAddCard={addCard}
-                    onDeleteCard={deleteCard}
-                  />
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
 
-      {/* Mobile: bottom sheet settings */}
+      {/* Bottom sheet settings (all screen sizes) */}
       {showSettings && activeCard && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSettings(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-brand-bg rounded-t-2xl max-h-[75vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-brand-bg px-4 pt-4 pb-2 flex items-center justify-between border-b border-brand-border">
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={() => setShowSettings(false)} />
+          <div className="absolute bottom-0 left-0 right-0 lg:left-1/2 lg:-translate-x-1/2 lg:max-w-lg bg-brand-bg rounded-t-2xl max-h-[75vh] overflow-y-auto animate-slide-up">
+            <div className="sticky top-0 bg-brand-bg/95 backdrop-blur-sm px-4 pt-4 pb-2 flex items-center justify-between border-b border-brand-border z-10">
               <h3 className="font-body text-sm font-semibold text-brand-text">Card Settings</h3>
               <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg hover:bg-brand-surface-alt transition-colors">
                 <X className="w-4 h-4 text-brand-text-muted" />
               </button>
             </div>
-            <div className="p-4">
+            <div className="p-4 pb-20 lg:pb-6">
               <CardSettings
                 card={activeCard}
                 cards={cards}
@@ -455,21 +446,19 @@ function CardSettings({
   onDeleteCard: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-body text-sm font-semibold text-brand-text">Card Settings</h3>
-        <div className="flex items-center gap-2">
-          {cards.length < 3 && (
-            <button onClick={onAddCard} className="flex items-center gap-1 text-xs font-medium text-brand-accent hover:text-brand-accent-hover transition-colors">
-              <Plus className="w-3.5 h-3.5" /> Add Card
-            </button>
-          )}
-          {cards.length > 1 && (
-            <button onClick={onDeleteCard} className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 transition-colors">
-              <Trash2 className="w-3.5 h-3.5" /> Delete
-            </button>
-          )}
-        </div>
+    <div className="space-y-5">
+      {/* Card management actions */}
+      <div className="flex items-center justify-end gap-3">
+        {cards.length < 3 && (
+          <button onClick={onAddCard} className="flex items-center gap-1.5 text-xs font-medium text-brand-accent hover:text-brand-accent-hover transition-colors">
+            <Plus className="w-3.5 h-3.5" /> Add Card
+          </button>
+        )}
+        {cards.length > 1 && (
+          <button onClick={onDeleteCard} className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+        )}
       </div>
 
       {/* Label */}
@@ -525,8 +514,8 @@ function CardSettings({
         </div>
       </div>
 
-      {saving && <p className="mt-2 text-[11px] text-brand-text-muted text-right">Saving...</p>}
-      {error && <p className="mt-2 text-[11px] text-red-500 text-right">{error}</p>}
+      {saving && <p className="text-[11px] text-brand-text-muted text-right">Saving...</p>}
+      {error && <p className="text-[11px] text-red-500 text-right">{error}</p>}
     </div>
   );
 }
