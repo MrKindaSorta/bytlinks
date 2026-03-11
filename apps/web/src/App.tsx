@@ -7,6 +7,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PublicPage = lazy(() => import('./pages/PublicPage'));
+const CardPage = lazy(() => import('./pages/CardPage'));
 
 function Spinner() {
   return (
@@ -42,6 +43,7 @@ export function App() {
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/:username/card" element={<CardPage />} />
         <Route path="/:username" element={<PublicPage />} />
       </Routes>
     </Suspense>
