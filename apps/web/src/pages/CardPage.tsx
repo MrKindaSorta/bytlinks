@@ -236,7 +236,6 @@ function SingleCard({
             color: 'var(--page-text-secondary, var(--page-text))',
             fontFamily: 'var(--page-font-body)',
             animationDelay: `${baseDelay + 140}ms`,
-            opacity: 0,
           }}
         >
           {page.job_title}
@@ -251,7 +250,6 @@ function SingleCard({
             color: 'var(--page-text-secondary, var(--page-text))',
             fontFamily: 'var(--page-font-body)',
             animationDelay: `${baseDelay + 200}ms`,
-            opacity: 0,
             display: '-webkit-box',
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
@@ -266,7 +264,7 @@ function SingleCard({
       {card.show_socials && socialLinks.length > 0 && (
         <div
           className="mt-5 opacity-0 animate-[cardFadeUp_0.6s_ease_forwards]"
-          style={{ animationDelay: `${baseDelay + 260}ms`, opacity: 0 }}
+          style={{ animationDelay: `${baseDelay + 260}ms` }}
         >
           <PageSocials socialLinks={socialLinks} layoutVariant="centered" pageId="" />
         </div>
@@ -276,7 +274,7 @@ function SingleCard({
       {contactItems.length > 0 && (
         <div
           className="mt-5 space-y-2 opacity-0 animate-[cardFadeUp_0.6s_ease_forwards]"
-          style={{ animationDelay: `${baseDelay + 320}ms`, opacity: 0 }}
+          style={{ animationDelay: `${baseDelay + 320}ms` }}
         >
           {contactItems.map((item) => (
             <CopyableField key={item.label} {...item} />
@@ -287,7 +285,7 @@ function SingleCard({
       {/* QR Code */}
       <div
         className="mt-6 flex justify-center opacity-0 animate-[cardFadeUp_0.6s_ease_forwards]"
-        style={{ animationDelay: `${baseDelay + 380}ms`, opacity: 0 }}
+        style={{ animationDelay: `${baseDelay + 380}ms` }}
       >
         <div className="rounded-xl bg-white p-2.5 shadow-sm">
           <canvas ref={qrCanvasRef} className="block" />
@@ -303,7 +301,7 @@ function SingleCard({
       {/* Action buttons */}
       <div
         className="mt-6 grid grid-cols-2 gap-3 opacity-0 animate-[cardFadeUp_0.6s_ease_forwards]"
-        style={{ animationDelay: `${baseDelay + 440}ms`, opacity: 0 }}
+        style={{ animationDelay: `${baseDelay + 440}ms` }}
       >
         <button
           onClick={handleSaveContact}
@@ -418,9 +416,21 @@ export default function CardPage() {
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  });
+  }, [activeIndex, total]);
 
   const activeCard = cards[activeIndex];
+
+  if (!activeCard) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg px-4">
+        <h1 className="font-display text-6xl font-900 tracking-[-0.05em] text-brand-text mb-3">404</h1>
+        <p className="font-body text-sm text-brand-text-secondary mb-6">No cards configured yet.</p>
+        <a href={`/${username}`} className="font-body text-sm font-medium text-brand-accent hover:text-brand-accent-hover transition-colors duration-150">
+          View Profile
+        </a>
+      </div>
+    );
+  }
 
   return (
     <PageShell theme={page.theme}>

@@ -26,6 +26,7 @@ export function BusinessCardTab() {
 
   const username = page?.username ?? '';
   const cardPageUrl = `https://www.bytlinks.com/${username}/card`;
+  const profileUrl = `https://www.bytlinks.com/${username}`;
   const vcardUrl = `/api/public/${username}/vcard`;
   const displayName = page?.display_name || username;
 
@@ -49,12 +50,14 @@ export function BusinessCardTab() {
 
   const activeCard = cards[activeIndex] ?? null;
 
-  // Render QR code
+  // Render QR code — respects qr_target setting
+  const qrUrl = activeCard?.qr_target === 'profile' ? profileUrl : cardPageUrl;
+
   const renderQr = useCallback(async () => {
     const canvas = qrCanvasRef.current;
     if (!canvas || !username) return;
     try {
-      await QRCode.toCanvas(canvas, cardPageUrl, {
+      await QRCode.toCanvas(canvas, qrUrl, {
         width: 140,
         margin: 1,
         color: { dark: '#1a1a2e', light: '#ffffff' },
@@ -63,7 +66,7 @@ export function BusinessCardTab() {
     } catch {
       // silent
     }
-  }, [cardPageUrl, username]);
+  }, [qrUrl, username]);
 
   useEffect(() => {
     renderQr();

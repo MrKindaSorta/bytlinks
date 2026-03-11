@@ -387,9 +387,21 @@ publicRoutes.get('/:username/vcard', async (c) => {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
 
-    const owner = await c.env.DB.prepare(
-      'SELECT email FROM users WHERE id = ?'
-    ).bind(page.user_id).first<{ email: string }>();
+    const [owner, cards] = await Promise.all([
+      c.env.DB.prepare(
+        'SELECT email FROM users WHERE id = ?'
+      ).bind(page.user_id).first<{ email: string }>(),
+      c.env.DB.prepare(
+        'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num LIMIT 1'
+      ).bind(page.id).all().catch(() => ({ results: [] as Record<string, unknown>[] })),
+    ]);
+
+    // Use the first business card's visibility settings, or fall back to legacy bio_pages fields
+    const card = cards.results[0] as Record<string, unknown> | undefined;
+    const showEmail = card ? !!card.show_email : !!page.show_email_card;
+    const showPhone = card ? !!card.show_phone : !!page.show_phone_card;
+    const showCompany = card ? !!card.show_company : !!page.show_company_card;
+    const showAddress = card ? !!card.show_address : !!page.show_address_card;
 
     // Build VCard using card-visibility toggles
     const displayName = (page.display_name as string) || username;
@@ -399,19 +411,19 @@ publicRoutes.get('/:username/vcard', async (c) => {
       `FN:${vcardEscape(displayName)}`,
     ];
 
-    if (page.company_name && page.show_company_card) {
+    if (page.company_name && showCompany) {
       lines.push(`ORG:${vcardEscape(page.company_name as string)}`);
     }
     if (page.job_title) {
       lines.push(`TITLE:${vcardEscape(page.job_title as string)}`);
     }
-    if (owner?.email && page.show_email_card) {
+    if (owner?.email && showEmail) {
       lines.push(`EMAIL;TYPE=INTERNET:${vcardEscape(owner.email)}`);
     }
-    if (page.phone && page.show_phone_card) {
+    if (page.phone && showPhone) {
       lines.push(`TEL;TYPE=CELL:${vcardEscape(page.phone as string)}`);
     }
-    if (page.address && page.show_address_card) {
+    if (page.address && showAddress) {
       lines.push(`ADR;TYPE=WORK:;;${vcardEscape(page.address as string)};;;;`);
     }
 
