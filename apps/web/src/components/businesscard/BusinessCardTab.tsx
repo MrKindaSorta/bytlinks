@@ -21,6 +21,7 @@ export function BusinessCardTab() {
   const [copied, setCopied] = useState(false);
   const [downloadToast, setDownloadToast] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -42,9 +43,11 @@ export function BusinessCardTab() {
       .then((json) => {
         if (json.success && json.data?.cards) {
           setCards(json.data.cards);
+        } else {
+          setError('Failed to load cards');
         }
       })
-      .catch(() => {})
+      .catch(() => setError('Failed to load cards'))
       .finally(() => setLoading(false));
   }, [page]);
 
@@ -75,15 +78,22 @@ export function BusinessCardTab() {
   // Update card on server
   async function updateCard(cardId: string, updates: Partial<BusinessCard>) {
     setSaving(true);
+    setError(null);
     try {
-      await fetch(`/api/pages/me/cards/${cardId}`, {
+      const res = await fetch(`/api/pages/me/cards/${cardId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(updates),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError((json as { error?: string }).error || 'Failed to save');
+        setTimeout(() => setError(null), 3000);
+      }
     } catch {
-      // silent
+      setError('Network error — changes may not be saved');
+      setTimeout(() => setError(null), 3000);
     } finally {
       setSaving(false);
     }
@@ -125,6 +135,7 @@ export function BusinessCardTab() {
 
   // Add card
   async function addCard() {
+    setError(null);
     try {
       const res = await fetch('/api/pages/me/cards', {
         method: 'POST',
@@ -134,24 +145,37 @@ export function BusinessCardTab() {
       if (json.success && json.data?.card) {
         setCards((prev) => [...prev, json.data.card]);
         setActiveIndex(cards.length);
+      } else {
+        setError(json.error || 'Failed to add card');
+        setTimeout(() => setError(null), 3000);
       }
     } catch {
-      // silent
+      setError('Failed to add card');
+      setTimeout(() => setError(null), 3000);
     }
   }
 
   // Delete card
   async function deleteCard() {
     if (!activeCard || cards.length <= 1) return;
+    if (!window.confirm(`Delete "${activeCard.label}"? This cannot be undone.`)) return;
+    setError(null);
     try {
-      await fetch(`/api/pages/me/cards/${activeCard.id}`, {
+      const res = await fetch(`/api/pages/me/cards/${activeCard.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
-      setCards((prev) => prev.filter((c) => c.id !== activeCard.id));
-      setActiveIndex((i) => Math.max(0, i - 1));
+      if (res.ok) {
+        setCards((prev) => prev.filter((c) => c.id !== activeCard.id));
+        setActiveIndex((i) => Math.max(0, i - 1));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError((json as { error?: string }).error || 'Failed to delete card');
+        setTimeout(() => setError(null), 3000);
+      }
     } catch {
-      // silent
+      setError('Failed to delete card');
+      setTimeout(() => setError(null), 3000);
     }
   }
 
@@ -330,7 +354,7 @@ export function BusinessCardTab() {
                 {/* QR Code */}
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="rounded-lg bg-white p-2">
-                    <canvas ref={qrCanvasRef} className="block" />
+                    <canvas ref={qrCanvasRef} className="block" role="img" aria-label="QR code for your business card" />
                   </div>
                   <p className="text-[10px] text-white/30 mt-1.5 text-center">Scan to view</p>
                 </div>
@@ -446,9 +470,14 @@ export function BusinessCardTab() {
 
                 {/* Card label */}
                 <div className="mb-4">
-                  <label className="font-body text-xs font-medium text-brand-text-secondary mb-1 block">
-                    Card Name
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-body text-xs font-medium text-brand-text-secondary">
+                      Card Name
+                    </label>
+                    <span className="font-body text-[10px] text-brand-text-muted tabular-nums">
+                      {activeCard.label.length}/30
+                    </span>
+                  </div>
                   <input
                     type="text"
                     value={activeCard.label}
@@ -562,6 +591,9 @@ export function BusinessCardTab() {
 
                 {saving && (
                   <p className="mt-2 text-[11px] text-brand-text-muted text-right">Saving...</p>
+                )}
+                {error && (
+                  <p className="mt-2 text-[11px] text-red-500 text-right">{error}</p>
                 )}
               </div>
             )}

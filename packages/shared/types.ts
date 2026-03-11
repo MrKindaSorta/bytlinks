@@ -657,6 +657,7 @@ export interface BusinessCard {
   show_address: boolean;
   show_socials: boolean;
   qr_target: 'card' | 'profile';
+  created_at?: string;
 }
 
 /** Profile template definition for starter kits */

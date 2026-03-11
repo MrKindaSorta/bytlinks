@@ -427,7 +427,7 @@ publicRoutes.get('/:username/vcard', async (c) => {
       lines.push(`ADR;TYPE=WORK:;;${vcardEscape(page.address as string)};;;;`);
     }
 
-    lines.push(`URL:https://www.bytlinks.com/${username}`);
+    lines.push(`URL:https://www.bytlinks.com/${encodeURIComponent(username)}`);
 
     if (page.avatar_r2_key) {
       lines.push(`PHOTO;VALUE=URI:https://www.bytlinks.com/api/public/avatar/${page.avatar_r2_key}`);
@@ -438,11 +438,12 @@ publicRoutes.get('/:username/vcard', async (c) => {
     const vcf = lines.join('\r\n');
 
     const disposition = c.req.query('inline') !== undefined ? 'inline' : 'attachment';
+    const safeFilename = username.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     return new Response(vcf, {
       headers: {
         'Content-Type': 'text/vcard; charset=utf-8',
-        'Content-Disposition': `${disposition}; filename="${username}.vcf"`,
+        'Content-Disposition': `${disposition}; filename="${safeFilename}.vcf"`,
         'Cache-Control': 'no-cache',
       },
     });
@@ -451,12 +452,14 @@ publicRoutes.get('/:username/vcard', async (c) => {
   }
 });
 
-/** Escape special characters for VCard fields. */
+/** Escape special characters for VCard fields (RFC 6350). */
 function vcardEscape(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\r/g, '\\n')
     .replace(/\n/g, '\\n');
 }
 
@@ -507,6 +510,9 @@ publicRoutes.get('/:username/card', async (c) => {
       }];
     }
 
+    let theme: Record<string, unknown> = {};
+    try { theme = JSON.parse(page.theme as string); } catch { /* use empty theme */ }
+
     return c.json({
       success: true,
       data: {
@@ -520,7 +526,7 @@ publicRoutes.get('/:username/card', async (c) => {
           phone: page.phone ?? null,
           address: page.address ?? null,
           email: owner?.email ?? null,
-          theme: JSON.parse(page.theme as string),
+          theme,
           show_branding: !!page.show_branding,
         },
         cards: cardConfigs.map((row: Record<string, unknown>) => ({

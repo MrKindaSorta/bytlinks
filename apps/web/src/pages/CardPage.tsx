@@ -42,29 +42,30 @@ function CopyableField({
 }) {
   const [copied, setCopied] = useState(false);
 
-  async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault();
+  async function handleCopy() {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // fallback: follow the href
-      if (href) window.location.href = href;
+      if (href) window.open(href, '_blank');
     }
   }
 
-  const content = (
-    <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer group"
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer group
+                 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--page-accent)]"
       style={{
         background: 'var(--page-surface, rgba(128,128,128,0.08))',
         border: '1px solid var(--page-border, rgba(128,128,128,0.12))',
       }}
-      onClick={handleCopy}
+      aria-label={`Copy ${label}: ${value}`}
     >
       <Icon className="w-4 h-4 shrink-0 opacity-50" style={{ color: 'var(--page-text)' }} />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 text-left">
         <p className="text-[10px] uppercase tracking-widest font-medium opacity-40" style={{ color: 'var(--page-text)' }}>
           {label}
         </p>
@@ -79,15 +80,7 @@ function CopyableField({
           <Copy className="w-3.5 h-3.5" style={{ color: 'var(--page-text)' }} />
         )}
       </div>
-    </div>
-  );
-
-  return href ? (
-    <a href={href} className="block no-underline" onClick={(e) => e.preventDefault()}>
-      {content}
-    </a>
-  ) : (
-    content
+    </button>
   );
 }
 
@@ -288,7 +281,7 @@ function SingleCard({
         style={{ animationDelay: `${baseDelay + 380}ms` }}
       >
         <div className="rounded-xl bg-white p-2.5 shadow-sm">
-          <canvas ref={qrCanvasRef} className="block" />
+          <canvas ref={qrCanvasRef} className="block" role="img" aria-label={`QR code linking to ${card.qr_target === 'profile' ? 'profile' : 'card page'}`} />
         </div>
       </div>
       <p
@@ -434,14 +427,6 @@ export default function CardPage() {
 
   return (
     <PageShell theme={page.theme}>
-      {/* Keyframe animation for staggered entrance */}
-      <style>{`
-        @keyframes cardFadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
       <div
         className="flex-1 flex flex-col justify-center py-12 relative"
         onTouchStart={handleTouchStart}

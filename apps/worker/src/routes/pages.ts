@@ -238,11 +238,11 @@ pageRoutes.get('/me/cards', async (c) => {
       'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
     ).bind(page.id).all();
 
-    // Auto-seed a default card from existing show_*_card toggles
+    // Auto-seed a default card from existing show_*_card toggles (INSERT OR IGNORE prevents race-condition duplicates)
     if (cards.results.length === 0) {
       const id = crypto.randomUUID();
       await c.env.DB.prepare(
-        `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
+        `INSERT OR IGNORE INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
          VALUES (?, ?, 'My Card', 0, 1, 1, 0, ?, ?, ?, ?, 1, 'card')`
       ).bind(
         id,
@@ -302,7 +302,11 @@ pageRoutes.post('/me/cards', async (c) => {
       'SELECT * FROM business_cards WHERE id = ?'
     ).bind(id).first();
 
-    return c.json({ success: true, data: { card: toBooleanCard(card!) } });
+    if (!card) {
+      return c.json({ success: false, error: 'Failed to create card' }, 500);
+    }
+
+    return c.json({ success: true, data: { card: toBooleanCard(card) } });
   } catch {
     return c.json({ success: false, error: 'Failed to create card' }, 500);
   }
@@ -343,6 +347,18 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
 
     if (!card) {
       return c.json({ success: false, error: 'Card not found' }, 404);
+    }
+
+    // Input validation
+    if (body.label !== undefined) {
+      if (typeof body.label !== 'string' || body.label.length === 0 || body.label.length > 100) {
+        return c.json({ success: false, error: 'Label must be 1–100 characters' }, 400);
+      }
+    }
+    if (body.qr_target !== undefined) {
+      if (!['card', 'profile'].includes(body.qr_target)) {
+        return c.json({ success: false, error: 'qr_target must be "card" or "profile"' }, 400);
+      }
     }
 
     const updates: string[] = [];
@@ -397,6 +413,15 @@ pageRoutes.delete('/me/cards/:cardId', async (c) => {
       return c.json({ success: false, error: 'No page found' }, 404);
     }
 
+    // Fetch card to get its order_num, and verify it belongs to this page
+    const card = await c.env.DB.prepare(
+      'SELECT id, order_num FROM business_cards WHERE id = ? AND page_id = ?'
+    ).bind(cardId, page.id).first<{ id: string; order_num: number }>();
+
+    if (!card) {
+      return c.json({ success: false, error: 'Card not found' }, 404);
+    }
+
     const count = await c.env.DB.prepare(
       'SELECT COUNT(*) as cnt FROM business_cards WHERE page_id = ?'
     ).bind(page.id).first<{ cnt: number }>();
@@ -405,20 +430,15 @@ pageRoutes.delete('/me/cards/:cardId', async (c) => {
       return c.json({ success: false, error: 'Cannot delete your only card' }, 400);
     }
 
-    await c.env.DB.prepare(
-      'DELETE FROM business_cards WHERE id = ? AND page_id = ?'
-    ).bind(cardId, page.id).run();
-
-    // Re-normalize order_num
-    const remaining = await c.env.DB.prepare(
-      'SELECT id FROM business_cards WHERE page_id = ? ORDER BY order_num'
-    ).bind(page.id).all();
-
-    for (let i = 0; i < remaining.results.length; i++) {
-      await c.env.DB.prepare(
-        'UPDATE business_cards SET order_num = ? WHERE id = ?'
-      ).bind(i, remaining.results[i].id).run();
-    }
+    // Delete + re-normalize in a batch for atomicity
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        'DELETE FROM business_cards WHERE id = ? AND page_id = ?'
+      ).bind(cardId, page.id),
+      c.env.DB.prepare(
+        'UPDATE business_cards SET order_num = order_num - 1 WHERE page_id = ? AND order_num > ?'
+      ).bind(page.id, card.order_num),
+    ]);
 
     return c.json({ success: true });
   } catch {
