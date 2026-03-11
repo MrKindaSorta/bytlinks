@@ -354,7 +354,7 @@ export function BusinessCardTab() {
                 {/* QR Code */}
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="rounded-lg bg-white p-2">
-                    <canvas ref={qrCanvasRef} className="block" role="img" aria-label="QR code for your business card" />
+                    <canvas ref={qrCanvasRef} width={140} height={140} className="block" role="img" aria-label="QR code for your business card" />
                   </div>
                   <p className="text-[10px] text-white/30 mt-1.5 text-center">Scan to view</p>
                 </div>

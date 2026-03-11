@@ -281,7 +281,7 @@ function SingleCard({
         style={{ animationDelay: `${baseDelay + 380}ms` }}
       >
         <div className="rounded-xl bg-white p-2.5 shadow-sm">
-          <canvas ref={qrCanvasRef} className="block" role="img" aria-label={`QR code linking to ${card.qr_target === 'profile' ? 'profile' : 'card page'}`} />
+          <canvas ref={qrCanvasRef} width={120} height={120} className="block" role="img" aria-label={`QR code linking to ${card.qr_target === 'profile' ? 'profile' : 'card page'}`} />
         </div>
       </div>
       <p
