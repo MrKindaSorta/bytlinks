@@ -75,13 +75,16 @@ app.all('*', async (c) => {
   // With not_found_handling = "single-page-application" in wrangler.toml,
   // ASSETS automatically serves index.html for missing paths.
   // The manual fallback below is kept as a safety net.
-  const res = await c.env.ASSETS.fetch(c.req.raw);
+  let res = await c.env.ASSETS.fetch(c.req.raw);
   if (res.status === 404) {
     const url = new URL(c.req.url);
     url.pathname = '/index.html';
-    return c.env.ASSETS.fetch(new Request(url.toString(), { method: 'GET' }));
+    res = await c.env.ASSETS.fetch(new Request(url.toString(), { method: 'GET' }));
   }
-  return res;
+  // Clone the response so we can add headers (ASSETS responses are immutable)
+  const newRes = new Response(res.body, res);
+  newRes.headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
+  return newRes;
 });
 
 export default {
