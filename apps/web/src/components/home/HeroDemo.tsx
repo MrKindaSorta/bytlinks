@@ -493,8 +493,8 @@ export function HeroDemo() {
     <div className="mx-auto w-full">
       {/* Phone frame */}
       <div
-        className="rounded-[2.5rem] overflow-hidden shadow-2xl"
-        style={{ border: '3px solid rgba(128,128,128,0.12)' }}
+        className="rounded-[2.5rem] overflow-hidden shadow-brand-lg"
+        style={{ border: '3px solid var(--brand-border)' }}
       >
         <div
           style={{
