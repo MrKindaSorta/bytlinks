@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { HeroDemo } from './HeroDemo';
 import { UsernameClaimInput } from './UsernameClaimInput';
@@ -119,18 +117,6 @@ export function HeroSection() {
             <span className="font-body text-sm text-brand-text-muted">✓ No credit card</span>
           </motion.div>
 
-          {/* Secondary CTA */}
-          <div className="mt-5">
-            <Link
-              to="/demo"
-              className="font-body text-sm font-medium text-brand-text-secondary
-                         hover:text-brand-text transition-colors duration-150
-                         flex items-center gap-1 group w-fit"
-            >
-              See an example page
-              <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
         </div>
 
         {/* Right: live page preview — overlaps into concept bar via negative margin */}
