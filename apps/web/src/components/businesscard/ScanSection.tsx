@@ -117,10 +117,22 @@ export function ScanSection({ onCardAdded }: ScanSectionProps) {
           (decodedText) => {
             if (cancelled || scanHandledRef.current) return;
 
+            // Match new private card URLs: bytlinks.com/c/TOKEN
+            const tokenMatch = decodedText.match(/bytlinks\.com\/c\/([A-Za-z0-9]{22})/);
+            if (tokenMatch) {
+              scanHandledRef.current = true;
+              scanner.stop().catch(() => {});
+              scannerRef.current = null;
+              if (navigator.vibrate) navigator.vibrate(100);
+              fetchCardByToken(tokenMatch[1]);
+              return;
+            }
+
+            // Match legacy profile/card URLs: bytlinks.com/username
             const match = decodedText.match(/bytlinks\.com\/([^\/?#]+)/);
             if (match) {
               const username = match[1];
-              if (username && !['api', 'login', 'signup', 'dashboard'].includes(username)) {
+              if (username && !['api', 'login', 'signup', 'dashboard', 'c'].includes(username)) {
                 scanHandledRef.current = true;
                 scanner.stop().catch(() => {});
                 scannerRef.current = null;
@@ -161,10 +173,20 @@ export function ScanSection({ onCardAdded }: ScanSectionProps) {
               { fps: 10 },
               (decodedText) => {
                 if (cancelled || scanHandledRef.current) return;
+                // Match new private card URLs: bytlinks.com/c/TOKEN
+                const tokenMatch2 = decodedText.match(/bytlinks\.com\/c\/([A-Za-z0-9]{22})/);
+                if (tokenMatch2) {
+                  scanHandledRef.current = true;
+                  scanner.stop().catch(() => {});
+                  scannerRef.current = null;
+                  if (navigator.vibrate) navigator.vibrate(100);
+                  fetchCardByToken(tokenMatch2[1]);
+                  return;
+                }
                 const match2 = decodedText.match(/bytlinks\.com\/([^\/?#]+)/);
                 if (match2) {
                   const username = match2[1];
-                  if (username && !['api', 'login', 'signup', 'dashboard'].includes(username)) {
+                  if (username && !['api', 'login', 'signup', 'dashboard', 'c'].includes(username)) {
                     scanHandledRef.current = true;
                     scanner.stop().catch(() => {});
                     scannerRef.current = null;
@@ -196,13 +218,44 @@ export function ScanSection({ onCardAdded }: ScanSectionProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  async function fetchCardByToken(token: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/public/card/${token}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setScannedCard({ username: json.data.page.username, page: json.data.page });
+        setMode('result');
+        setAddedToRolodex(false);
+        setSentCard(null);
+      } else {
+        setError('Card not found or link expired');
+        setMode('idle');
+      }
+    } catch {
+      setError('Failed to load card. Check your connection.');
+      setMode('idle');
+    }
+  }
+
   async function fetchCardData(username: string) {
     setError(null);
     try {
+      // Legacy endpoint now returns a redirect to the token-based URL
       const res = await fetch(`/api/public/${username}/card`);
       const json = await res.json();
-      if (json.success && json.data) {
-        setScannedCard({ username, page: json.data.page });
+      if (json.success && json.data?.redirect) {
+        // Extract token from redirect path: /c/TOKEN
+        const tokenMatch = json.data.redirect.match(/\/c\/([A-Za-z0-9]{22})/);
+        if (tokenMatch) {
+          return fetchCardByToken(tokenMatch[1]);
+        }
+      }
+      // Fallback: try loading the public page data directly for rolodex
+      const pageRes = await fetch(`/api/public/${username}`);
+      const pageJson = await pageRes.json();
+      if (pageJson.success && pageJson.data?.page) {
+        setScannedCard({ username, page: pageJson.data.page });
         setMode('result');
         setAddedToRolodex(false);
         setSentCard(null);
