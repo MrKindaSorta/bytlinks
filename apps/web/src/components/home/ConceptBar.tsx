@@ -66,6 +66,31 @@ export function ConceptBar() {
           ))}
         </div>
       </motion.div>
+
+      {/* Use-case links */}
+      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1 mt-6 pt-5 border-t border-brand-border">
+        <span className="font-body text-xs text-brand-text-muted mr-1">Built for:</span>
+        {[
+          { label: 'Creators', slug: 'creators' },
+          { label: 'Musicians', slug: 'musicians' },
+          { label: 'Freelancers', slug: 'freelancers' },
+          { label: 'Businesses', slug: 'businesses' },
+          { label: 'Podcasters', slug: 'podcasters' },
+          { label: 'Coaches', slug: 'coaches' },
+        ].map(({ label, slug }, i, arr) => (
+          <span key={slug} className="font-body text-xs">
+            <a
+              href={`/for/${slug}`}
+              className="text-brand-text-muted hover:text-brand-accent transition-colors duration-150"
+            >
+              {label}
+            </a>
+            {i < arr.length - 1 && (
+              <span className="text-brand-border ml-1">&middot;</span>
+            )}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }

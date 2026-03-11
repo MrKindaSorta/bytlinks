@@ -14,8 +14,8 @@ seoRoutes.get('/settings', async (c) => {
 
   try {
     const row = await c.env.DB.prepare(
-      'SELECT seo_title, seo_description, seo_keywords FROM bio_pages WHERE user_id = ?'
-    ).bind(user.id).first<{ seo_title: string | null; seo_description: string | null; seo_keywords: string | null }>();
+      'SELECT seo_title, seo_description, seo_keywords, created_at FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ seo_title: string | null; seo_description: string | null; seo_keywords: string | null; created_at: number }>();
 
     if (!row) return c.json({ success: false, error: 'Page not found' }, 404);
 
@@ -25,6 +25,7 @@ seoRoutes.get('/settings', async (c) => {
         seo_title: row.seo_title,
         seo_description: row.seo_description,
         seo_keywords: row.seo_keywords,
+        created_at: row.created_at,
       },
     });
   } catch {

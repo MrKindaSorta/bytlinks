@@ -16,6 +16,26 @@ export interface ProfileMetaData {
   seo_keywords: string | null;
 }
 
+export interface SocialLink {
+  platform: string;
+  url: string;
+}
+
+/** Map platform identifiers to their base profile URLs. */
+const PLATFORM_DOMAINS: Record<string, string> = {
+  twitter: 'https://twitter.com/',
+  x: 'https://x.com/',
+  linkedin: 'https://linkedin.com/in/',
+  github: 'https://github.com/',
+  instagram: 'https://instagram.com/',
+  youtube: 'https://youtube.com/',
+  tiktok: 'https://tiktok.com/@',
+  spotify: 'https://open.spotify.com/artist/',
+  soundcloud: 'https://soundcloud.com/',
+  twitch: 'https://twitch.tv/',
+  website: '', // full URL stored directly
+};
+
 /** Escape user strings for safe insertion into HTML attributes. */
 function escapeAttr(str: string): string {
   return str
@@ -36,6 +56,11 @@ function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen - 3) + '...';
 }
 
+/** Check if avatar_r2_key is set and non-empty. */
+function hasAvatar(profile: ProfileMetaData): boolean {
+  return !!(profile.avatar_r2_key && profile.avatar_r2_key.trim() !== '');
+}
+
 /** Build the resolved page title from profile data. */
 function resolveTitle(p: ProfileMetaData): string {
   if (p.seo_title) {
@@ -49,7 +74,18 @@ function resolveTitle(p: ProfileMetaData): string {
   return truncate(`@${p.username} | BytLinks`, 60);
 }
 
-/** Build the resolved meta description from profile data. */
+/**
+ * Build the resolved meta description from profile data.
+ *
+ * Fallback chain:
+ * 1. seo_description (user-set override) — use as-is
+ * 2. bio (first 150 chars, HTML stripped)
+ * 3. Auto-generated: "{job_title} at {company_name}. Find all their links on BytLinks."
+ * 4. Auto-generated: "{job_title}. Find all their links on BytLinks."
+ * 5. Final fallback: "Find all of @{username}'s links and contact info on BytLinks."
+ *
+ * Max length: 160 chars, truncated with "..." after resolution.
+ */
 function resolveDescription(p: ProfileMetaData): string {
   if (p.seo_description) {
     return truncate(stripHtml(p.seo_description), 160);
@@ -58,12 +94,12 @@ function resolveDescription(p: ProfileMetaData): string {
     return truncate(stripHtml(p.bio), 160);
   }
   if (p.job_title && p.company_name) {
-    return truncate(`${p.job_title} at ${p.company_name}. Find all my links on BytLinks.`, 160);
+    return truncate(`${p.job_title} at ${p.company_name}. Find all their links on BytLinks.`, 160);
   }
   if (p.job_title) {
-    return truncate(`${p.job_title}. Find all my links on BytLinks.`, 160);
+    return truncate(`${p.job_title}. Find all their links on BytLinks.`, 160);
   }
-  return `Find all of @${p.username}'s links, content, and contact info on BytLinks.`;
+  return `Find all of @${p.username}'s links and contact info on BytLinks.`;
 }
 
 /** Build comma-separated keywords string. */
@@ -81,19 +117,37 @@ function resolveKeywords(p: ProfileMetaData): string {
   return auto.join(', ');
 }
 
+/** Build sameAs URLs from social links for JSON-LD. */
+function buildSameAs(socialLinks: SocialLink[]): string[] {
+  return socialLinks
+    .map((link) => {
+      if (!link.url || !link.platform) return null;
+      const url = link.url.startsWith('http')
+        ? link.url
+        : (PLATFORM_DOMAINS[link.platform] || '') + link.url;
+      try { new URL(url); return url; }
+      catch { return null; }
+    })
+    .filter((url): url is string => url !== null);
+}
+
 /**
  * Build all meta tags for a public profile page.
  * Returns an HTML string to inject into <head>.
  */
-export function buildMetaTags(profile: ProfileMetaData, baseUrl: string): string {
+export function buildMetaTags(profile: ProfileMetaData, socialLinks: SocialLink[], baseUrl: string): string {
   const title = escapeAttr(resolveTitle(profile));
   const description = escapeAttr(resolveDescription(profile));
   const keywords = escapeAttr(resolveKeywords(profile));
   const url = `${baseUrl}/${encodeURIComponent(profile.username)}`;
 
-  const ogImage = profile.avatar_r2_key
+  const avatarPresent = hasAvatar(profile);
+  const ogImage = avatarPresent
     ? `${baseUrl}/api/public/avatar/${profile.avatar_r2_key}`
     : `${baseUrl}/og-default.png`;
+
+  // Use summary_large_image when a custom avatar exists for larger Twitter/X previews
+  const twitterCard = avatarPresent ? 'summary_large_image' : 'summary';
 
   return [
     `<title>${title}</title>`,
@@ -105,7 +159,7 @@ export function buildMetaTags(profile: ProfileMetaData, baseUrl: string): string
     `<meta property="og:url" content="${escapeAttr(url)}" />`,
     `<meta property="og:type" content="profile" />`,
     `<meta property="og:site_name" content="BytLinks" />`,
-    `<meta name="twitter:card" content="summary" />`,
+    `<meta name="twitter:card" content="${twitterCard}" />`,
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${description}" />`,
     `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
@@ -117,35 +171,34 @@ export function buildMetaTags(profile: ProfileMetaData, baseUrl: string): string
  * Build a JSON-LD Person schema block for structured data.
  * Returns a <script type="application/ld+json"> string.
  */
-export function buildJsonLd(profile: ProfileMetaData, baseUrl: string): string {
-  const name = profile.display_name || profile.username;
-  const url = `${baseUrl}/${encodeURIComponent(profile.username)}`;
-
-  const schema: Record<string, unknown> = {
+export function buildJsonLd(profile: ProfileMetaData, socialLinks: SocialLink[], baseUrl: string): string {
+  const jsonLdObject: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Person',
-    name,
-    url,
+    name: profile.display_name || profile.username,
+    url: `${baseUrl}/${encodeURIComponent(profile.username)}`,
   };
 
-  const desc = resolveDescription(profile);
-  if (desc) schema.description = desc;
-
-  if (profile.job_title) schema.jobTitle = profile.job_title;
+  // Conditionally add fields — never include null/empty
+  if (profile.bio) jsonLdObject.description = stripHtml(profile.bio);
+  if (profile.job_title) jsonLdObject.jobTitle = profile.job_title;
 
   if (profile.company_name) {
-    schema.worksFor = {
+    jsonLdObject.worksFor = {
       '@type': 'Organization',
       name: profile.company_name,
     };
   }
 
-  if (profile.avatar_r2_key) {
-    schema.image = `${baseUrl}/api/public/avatar/${profile.avatar_r2_key}`;
+  if (hasAvatar(profile)) {
+    jsonLdObject.image = `${baseUrl}/api/public/avatar/${profile.avatar_r2_key}`;
   }
 
+  const sameAs = buildSameAs(socialLinks);
+  if (sameAs.length > 0) jsonLdObject.sameAs = sameAs;
+
   // Escape </script> in JSON output to prevent tag injection
-  const json = JSON.stringify(schema, null, 2).replace(/<\/script>/gi, '<\\/script>');
+  const json = JSON.stringify(jsonLdObject, null, 2).replace(/<\/script>/gi, '<\\/script>');
 
   return `<script type="application/ld+json">${json}</script>`;
 }

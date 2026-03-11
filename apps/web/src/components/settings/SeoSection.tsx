@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Check } from 'lucide-react';
+import { Search, Check, ShieldCheck, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { usePage } from '../../hooks/usePage';
 import { TagInput } from './TagInput';
 
@@ -7,10 +7,14 @@ import { TagInput } from './TagInput';
 const GOOGLE_GREEN = '#006621';
 const GOOGLE_BLUE = '#1a0dab';
 
+/** Amber warning color for incomplete SEO status. */
+const SEO_WARN_COLOR = '#b45309';
+
 interface SeoData {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+  created_at: number | null;
 }
 
 function charCountColor(current: number, max: number): string {
@@ -19,11 +23,23 @@ function charCountColor(current: number, max: number): string {
   return 'text-brand-text-muted';
 }
 
+function relativeTime(unixSeconds: number): string {
+  const seconds = Math.floor(Date.now() / 1000) - unixSeconds;
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+  if (seconds < 2592000) return `${Math.floor(seconds / 604800)} weeks ago`;
+  return `${Math.floor(seconds / 2592000)} months ago`;
+}
+
 export function SeoSection() {
   const { page } = usePage();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -38,6 +54,7 @@ export function SeoSection() {
           setTitle(d.seo_title || '');
           setDescription(d.seo_description || '');
           setTags(d.seo_keywords ? d.seo_keywords.split(',').map((t: string) => t.trim()).filter(Boolean) : []);
+          setCreatedAt(d.created_at ?? null);
         }
       })
       .catch(() => {})
@@ -80,6 +97,8 @@ export function SeoSection() {
     || 'Find all my links, content, and contact info on BytLinks.';
   const previewUrl = page?.username ? `bytlinks.com/${page.username}` : 'bytlinks.com/yourname';
 
+  const seoComplete = title.length > 0 && description.length > 0 && tags.length > 0;
+
   if (loading) {
     return (
       <section className="rounded-xl border border-brand-border bg-brand-surface p-6">
@@ -101,6 +120,58 @@ export function SeoSection() {
       <p className="font-body text-sm text-brand-text-secondary mb-6">
         Control how your page appears in Google and when shared on social media.
       </p>
+
+      {/* Search Visibility status card */}
+      <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 mb-6">
+        <h3 className="text-sm font-medium text-brand-text-secondary uppercase tracking-[0.14em] mb-4">
+          Search visibility
+        </h3>
+
+        {/* Crawlability */}
+        <div className="flex items-start gap-3 py-3 border-b border-brand-border">
+          <ShieldCheck className="w-5 h-5 text-brand-accent flex-shrink-0" />
+          <div>
+            <div className="font-body text-sm font-medium text-brand-text">Your page is crawlable</div>
+            <div className="font-body text-xs text-brand-text-muted mt-0.5">
+              Search engines can index bytlinks.com/{page?.username}
+            </div>
+          </div>
+        </div>
+
+        {/* Last updated */}
+        <div className="flex items-start gap-3 py-3 border-b border-brand-border">
+          <Clock className="w-5 h-5 text-brand-text-muted flex-shrink-0" />
+          <div>
+            <div className="font-body text-sm font-medium text-brand-text">Last updated</div>
+            <div className="font-body text-xs text-brand-text-muted mt-0.5">
+              {createdAt ? relativeTime(createdAt) : 'Unknown'}
+            </div>
+          </div>
+        </div>
+
+        {/* SEO completeness */}
+        {seoComplete ? (
+          <div className="flex items-start gap-3 py-3">
+            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0" />
+            <div>
+              <div className="font-body text-sm font-medium text-brand-text">SEO profile complete</div>
+              <div className="font-body text-xs text-brand-text-muted mt-0.5">
+                You're controlling your search appearance.
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3 py-3">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: SEO_WARN_COLOR }} />
+            <div>
+              <div className="font-body text-sm font-medium text-brand-text">Improve your search appearance</div>
+              <div className="font-body text-xs text-brand-text-muted mt-0.5">
+                Add a title and description below to control how you appear in Google.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-5">
         {/* Page Title */}

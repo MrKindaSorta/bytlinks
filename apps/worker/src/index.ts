@@ -16,7 +16,7 @@ import { utilRoutes, eventRsvpRoutes } from './routes/utils';
 import { rolodexRoutes } from './routes/rolodex';
 import { seoRoutes } from './routes/seo';
 import { buildMetaTags, buildJsonLd } from './utils/injectMeta';
-import type { ProfileMetaData } from './utils/injectMeta';
+import type { ProfileMetaData, SocialLink } from './utils/injectMeta';
 
 export type Env = {
   DB: D1Database;
@@ -97,6 +97,9 @@ app.get('/sitemap.xml', async (c) => {
   const baseUrl = 'https://www.bytlinks.com';
 
   try {
+    // TODO: When page privacy/visibility feature is implemented,
+    // add a WHERE clause here to exclude private/unlisted pages.
+    // See: migrations/023_seo_fields.sql for context.
     const { results } = await c.env.DB.prepare(
       'SELECT username, created_at FROM bio_pages WHERE is_published = 1 ORDER BY created_at DESC LIMIT 10000'
     ).all<{ username: string; created_at: number }>();
@@ -123,6 +126,36 @@ app.get('/sitemap.xml', async (c) => {
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>${baseUrl}/for/musicians</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/freelancers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/businesses</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/creators</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/podcasters</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/coaches</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
 ${userUrls}
 </urlset>`;
 
@@ -140,7 +173,7 @@ ${userUrls}
 // ── SEO: intercept public profile pages for meta injection ──
 // Must be BEFORE the SPA fallback so crawlers get populated <head> tags.
 const RESERVED_PATHS = new Set([
-  'login', 'signup', 'dashboard', 'settings', 'c', 'api',
+  'login', 'signup', 'dashboard', 'settings', 'c', 'api', 'for',
   'sitemap.xml', 'robots.txt', 'privacy', 'terms',
 ]);
 
@@ -154,14 +187,22 @@ app.get('/:username', async (c, next) => {
   if (!/^[a-z0-9_-]+$/.test(username)) return next();
 
   try {
+    // TODO: When page privacy/visibility feature is implemented,
+    // skip meta injection for private/unlisted pages and fall through to SPA.
     const profile = await c.env.DB.prepare(
-      `SELECT username, display_name, bio, job_title, company_name,
+      `SELECT id, username, display_name, bio, job_title, company_name,
               avatar_r2_key, seo_title, seo_description, seo_keywords
        FROM bio_pages WHERE username = ? AND is_published = 1`
-    ).bind(username).first<ProfileMetaData>();
+    ).bind(username).first<ProfileMetaData & { id: string }>();
 
     // No user found — fall through to SPA (shows React 404)
     if (!profile) return next();
+
+    // Fetch social links for sameAs in JSON-LD
+    const socialsResult = await c.env.DB.prepare(
+      'SELECT platform, url FROM social_links WHERE page_id = ?'
+    ).bind(profile.id).all<SocialLink>();
+    const socialLinks = socialsResult.results || [];
 
     // Fetch the index.html shell
     const url = new URL(c.req.url);
@@ -170,8 +211,8 @@ app.get('/:username', async (c, next) => {
     let html = await htmlRes.text();
 
     const baseUrl = `${url.protocol}//${url.host}`;
-    const metaTags = buildMetaTags(profile, baseUrl);
-    const jsonLd = buildJsonLd(profile, baseUrl);
+    const metaTags = buildMetaTags(profile, socialLinks, baseUrl);
+    const jsonLd = buildJsonLd(profile, socialLinks, baseUrl);
 
     // Replace the static <title> with populated meta tags + JSON-LD
     html = html.replace(/<title>[^<]*<\/title>/, metaTags + '\n    ' + jsonLd);
