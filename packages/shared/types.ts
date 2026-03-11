@@ -642,6 +642,23 @@ export interface AnalyticsEvent {
   timestamp: number;
 }
 
+/** Business card configuration — users can have up to 3 cards */
+export interface BusinessCard {
+  id: string;
+  page_id: string;
+  label: string;
+  order_num: number;
+  show_avatar: boolean;
+  show_job_title: boolean;
+  show_bio: boolean;
+  show_email: boolean;
+  show_phone: boolean;
+  show_company: boolean;
+  show_address: boolean;
+  show_socials: boolean;
+  qr_target: 'card' | 'profile';
+}
+
 /** Profile template definition for starter kits */
 export interface ProfileTemplate {
   id: string;

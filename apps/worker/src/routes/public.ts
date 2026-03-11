@@ -449,6 +449,88 @@ function vcardEscape(value: string): string {
 }
 
 /**
+ * GET /api/public/:username/card — fetch card-specific data for the public card page
+ */
+publicRoutes.get('/:username/card', async (c) => {
+  const username = c.req.param('username');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT * FROM bio_pages WHERE username = ? AND is_published = 1'
+    ).bind(username).first();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Page not found' }, 404);
+    }
+
+    const [cards, socialLinks, owner] = await Promise.all([
+      c.env.DB.prepare(
+        'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT * FROM social_links WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all(),
+      c.env.DB.prepare(
+        'SELECT email FROM users WHERE id = ?'
+      ).bind(page.user_id).first<{ email: string }>(),
+    ]);
+
+    // If no cards configured yet, return a default card with legacy show_*_card values
+    let cardConfigs = cards.results;
+    if (cardConfigs.length === 0) {
+      cardConfigs = [{
+        id: 'default',
+        page_id: page.id,
+        label: 'My Card',
+        order_num: 0,
+        show_avatar: 1,
+        show_job_title: 1,
+        show_bio: 0,
+        show_email: page.show_email_card ? 1 : 0,
+        show_phone: page.show_phone_card ? 1 : 0,
+        show_company: page.show_company_card ? 1 : 0,
+        show_address: page.show_address_card ? 1 : 0,
+        show_socials: 1,
+        qr_target: 'card',
+      }];
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        page: {
+          username: page.username,
+          display_name: page.display_name,
+          bio: page.bio,
+          job_title: page.job_title ?? null,
+          avatar_r2_key: page.avatar_r2_key,
+          company_name: page.company_name ?? null,
+          phone: page.phone ?? null,
+          address: page.address ?? null,
+          email: owner?.email ?? null,
+          theme: JSON.parse(page.theme as string),
+          show_branding: !!page.show_branding,
+        },
+        cards: cardConfigs.map((row: Record<string, unknown>) => ({
+          ...row,
+          show_avatar: !!row.show_avatar,
+          show_job_title: !!row.show_job_title,
+          show_bio: !!row.show_bio,
+          show_email: !!row.show_email,
+          show_phone: !!row.show_phone,
+          show_company: !!row.show_company,
+          show_address: !!row.show_address,
+          show_socials: !!row.show_socials,
+        })),
+        socialLinks: socialLinks.results,
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+/**
  * GET /api/public/:username — fetch a public bio page with all content
  */
 publicRoutes.get('/:username', async (c) => {

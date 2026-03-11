@@ -218,3 +218,225 @@ pageRoutes.put('/me', async (c) => {
     return c.json({ success: false, error: 'Failed to update page' }, 500);
   }
 });
+
+/**
+ * GET /api/pages/me/cards — list business cards (auto-seeds a default if none exist)
+ */
+pageRoutes.get('/me/cards', async (c) => {
+  const user = c.get('user');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT * FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first();
+
+    if (!page) {
+      return c.json({ success: false, error: 'No page found' }, 404);
+    }
+
+    let cards = await c.env.DB.prepare(
+      'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
+    ).bind(page.id).all();
+
+    // Auto-seed a default card from existing show_*_card toggles
+    if (cards.results.length === 0) {
+      const id = crypto.randomUUID();
+      await c.env.DB.prepare(
+        `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
+         VALUES (?, ?, 'My Card', 0, 1, 1, 0, ?, ?, ?, ?, 1, 'card')`
+      ).bind(
+        id,
+        page.id,
+        page.show_email_card ? 1 : 0,
+        page.show_phone_card ? 1 : 0,
+        page.show_company_card ? 1 : 0,
+        page.show_address_card ? 1 : 0,
+      ).run();
+
+      cards = await c.env.DB.prepare(
+        'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all();
+    }
+
+    return c.json({
+      success: true,
+      data: { cards: cards.results.map(toBooleanCard) },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to load cards' }, 500);
+  }
+});
+
+/**
+ * POST /api/pages/me/cards — create a new business card (max 3)
+ */
+pageRoutes.post('/me/cards', async (c) => {
+  const user = c.get('user');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ id: string }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'No page found' }, 404);
+    }
+
+    const count = await c.env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM business_cards WHERE page_id = ?'
+    ).bind(page.id).first<{ cnt: number }>();
+
+    if (count && count.cnt >= 3) {
+      return c.json({ success: false, error: 'Maximum of 3 cards allowed' }, 400);
+    }
+
+    const id = crypto.randomUUID();
+    const orderNum = count ? count.cnt : 0;
+
+    await c.env.DB.prepare(
+      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
+       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, 'card')`
+    ).bind(id, page.id, `Card ${orderNum + 1}`, orderNum).run();
+
+    const card = await c.env.DB.prepare(
+      'SELECT * FROM business_cards WHERE id = ?'
+    ).bind(id).first();
+
+    return c.json({ success: true, data: { card: toBooleanCard(card!) } });
+  } catch {
+    return c.json({ success: false, error: 'Failed to create card' }, 500);
+  }
+});
+
+/**
+ * PUT /api/pages/me/cards/:cardId — update a business card
+ */
+pageRoutes.put('/me/cards/:cardId', async (c) => {
+  const user = c.get('user');
+  const cardId = c.req.param('cardId');
+  const body = await c.req.json<{
+    label?: string;
+    show_avatar?: boolean;
+    show_job_title?: boolean;
+    show_bio?: boolean;
+    show_email?: boolean;
+    show_phone?: boolean;
+    show_company?: boolean;
+    show_address?: boolean;
+    show_socials?: boolean;
+    qr_target?: 'card' | 'profile';
+  }>();
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ id: string }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'No page found' }, 404);
+    }
+
+    // Verify card belongs to this user's page
+    const card = await c.env.DB.prepare(
+      'SELECT id FROM business_cards WHERE id = ? AND page_id = ?'
+    ).bind(cardId, page.id).first();
+
+    if (!card) {
+      return c.json({ success: false, error: 'Card not found' }, 404);
+    }
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (body.label !== undefined) {
+      updates.push('label = ?');
+      values.push(body.label);
+    }
+    if (body.qr_target !== undefined) {
+      updates.push('qr_target = ?');
+      values.push(body.qr_target);
+    }
+    for (const toggle of [
+      'show_avatar', 'show_job_title', 'show_bio', 'show_email',
+      'show_phone', 'show_company', 'show_address', 'show_socials',
+    ] as const) {
+      if (body[toggle] !== undefined) {
+        updates.push(`${toggle} = ?`);
+        values.push(body[toggle] ? 1 : 0);
+      }
+    }
+
+    if (updates.length === 0) {
+      return c.json({ success: false, error: 'No fields to update' }, 400);
+    }
+
+    values.push(cardId);
+    await c.env.DB.prepare(
+      `UPDATE business_cards SET ${updates.join(', ')} WHERE id = ?`
+    ).bind(...values).run();
+
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to update card' }, 500);
+  }
+});
+
+/**
+ * DELETE /api/pages/me/cards/:cardId — delete a business card (must keep at least 1)
+ */
+pageRoutes.delete('/me/cards/:cardId', async (c) => {
+  const user = c.get('user');
+  const cardId = c.req.param('cardId');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ id: string }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'No page found' }, 404);
+    }
+
+    const count = await c.env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM business_cards WHERE page_id = ?'
+    ).bind(page.id).first<{ cnt: number }>();
+
+    if (count && count.cnt <= 1) {
+      return c.json({ success: false, error: 'Cannot delete your only card' }, 400);
+    }
+
+    await c.env.DB.prepare(
+      'DELETE FROM business_cards WHERE id = ? AND page_id = ?'
+    ).bind(cardId, page.id).run();
+
+    // Re-normalize order_num
+    const remaining = await c.env.DB.prepare(
+      'SELECT id FROM business_cards WHERE page_id = ? ORDER BY order_num'
+    ).bind(page.id).all();
+
+    for (let i = 0; i < remaining.results.length; i++) {
+      await c.env.DB.prepare(
+        'UPDATE business_cards SET order_num = ? WHERE id = ?'
+      ).bind(i, remaining.results[i].id).run();
+    }
+
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to delete card' }, 500);
+  }
+});
+
+/** Convert SQLite integer booleans to JS booleans for a business card row */
+function toBooleanCard(row: Record<string, unknown>) {
+  return {
+    ...row,
+    show_avatar: !!row.show_avatar,
+    show_job_title: !!row.show_job_title,
+    show_bio: !!row.show_bio,
+    show_email: !!row.show_email,
+    show_phone: !!row.show_phone,
+    show_company: !!row.show_company,
+    show_address: !!row.show_address,
+    show_socials: !!row.show_socials,
+  };
+}
