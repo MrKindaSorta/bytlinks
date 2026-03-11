@@ -71,7 +71,7 @@ export function ContactModal({ entry, onClose, onRemove, onRefresh, onNotesChang
         </div>
 
         {/* Card Display */}
-        <div className="p-5">
+        <div className="p-5 pb-20 sm:pb-5">
           <div className="rounded-2xl border border-brand-border bg-gradient-to-br from-[#1a1a2e] to-[#16213e] shadow-xl overflow-hidden">
             <div className="px-5 pt-6 pb-4">
               <div className="flex items-start gap-4">
