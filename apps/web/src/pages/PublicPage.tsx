@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
+import { PageHead } from '../components/PageHead';
 import type { BioPage, Link as LinkType, SocialLink, EmbedBlock, ContentBlock, ContentBlockType, Theme } from '@bytlinks/shared';
 import { resolveBlockColumnSpan } from '@bytlinks/shared/constants';
 import { PageShell } from '../components/page/PageShell';
@@ -86,16 +87,7 @@ export default function PublicPage() {
     }
   }, [data]);
 
-  useEffect(() => {
-    if (data?.page) {
-      document.title = data.page.display_name
-        ? `${data.page.display_name} | BytLinks`
-        : `@${username} | BytLinks`;
-    } else if (error) {
-      document.title = '404 | BytLinks';
-    }
-    return () => { document.title = 'BytLinks'; };
-  }, [data, error, username]);
+  // Page title is handled by <PageHead> in the render output below.
 
   // Scroll-reveal — observe from the page root so both mobile AND desktop blocks get revealed
   useEffect(() => {
@@ -121,6 +113,7 @@ export default function PublicPage() {
   if (error || !data) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg px-4">
+        <PageHead title="404" noIndex />
         <h1 className="font-display text-6xl font-900 tracking-[-0.05em] text-brand-text mb-3">404</h1>
         <p className="font-body text-sm text-brand-text-secondary mb-6">{error || 'This page does not exist.'}</p>
         <a href="/" className="font-body text-sm font-medium text-brand-accent hover:text-brand-accent-hover transition-colors duration-150">
@@ -372,8 +365,12 @@ export default function PublicPage() {
     );
   }
 
+  const pageTitle = page.seo_title || page.display_name || `@${username}`;
+  const pageDesc = page.seo_description || page.bio || undefined;
+
   return (
     <PageShell theme={theme}>
+      <PageHead title={pageTitle} description={pageDesc || undefined} />
       <div ref={pageRef}>
         <div className="md:hidden">
           {renderMobile()}

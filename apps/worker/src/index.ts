@@ -14,6 +14,9 @@ import { importRoutes } from './routes/import';
 import { exportRoutes } from './routes/export';
 import { utilRoutes, eventRsvpRoutes } from './routes/utils';
 import { rolodexRoutes } from './routes/rolodex';
+import { seoRoutes } from './routes/seo';
+import { buildMetaTags, buildJsonLd } from './utils/injectMeta';
+import type { ProfileMetaData } from './utils/injectMeta';
 
 export type Env = {
   DB: D1Database;
@@ -66,9 +69,125 @@ app.route('/api/export', exportRoutes);
 app.route('/api/utils', utilRoutes);
 app.route('/api/event-rsvps', eventRsvpRoutes);
 app.route('/api/rolodex', rolodexRoutes);
+app.route('/api/seo', seoRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
+
+// ── robots.txt ──
+app.get('/robots.txt', (c) => {
+  return new Response(
+    `User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /api/
+Sitemap: https://www.bytlinks.com/sitemap.xml`,
+    {
+      headers: {
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    },
+  );
+});
+
+// ── Dynamic sitemap ──
+app.get('/sitemap.xml', async (c) => {
+  const baseUrl = 'https://www.bytlinks.com';
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT username, created_at FROM bio_pages WHERE is_published = 1 ORDER BY created_at DESC LIMIT 10000'
+    ).all<{ username: string; created_at: number }>();
+
+    const userUrls = (results || []).map((row) => {
+      const date = new Date(row.created_at * 1000).toISOString().split('T')[0];
+      return `  <url>
+    <loc>${baseUrl}/${encodeURIComponent(row.username)}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`;
+    }).join('\n');
+
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/signup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${userUrls}
+</urlset>`;
+
+    return new Response(sitemap, {
+      headers: {
+        'Content-Type': 'application/xml;charset=UTF-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  } catch {
+    return c.json({ error: 'Failed to generate sitemap' }, 500);
+  }
+});
+
+// ── SEO: intercept public profile pages for meta injection ──
+// Must be BEFORE the SPA fallback so crawlers get populated <head> tags.
+const RESERVED_PATHS = new Set([
+  'login', 'signup', 'dashboard', 'settings', 'c', 'api',
+  'sitemap.xml', 'robots.txt', 'privacy', 'terms',
+]);
+
+app.get('/:username', async (c, next) => {
+  const username = c.req.param('username');
+
+  // Skip reserved app routes — let them fall through to SPA
+  if (RESERVED_PATHS.has(username)) return next();
+
+  // Only intercept username-shaped paths (lowercase alphanumeric + _ -)
+  if (!/^[a-z0-9_-]+$/.test(username)) return next();
+
+  try {
+    const profile = await c.env.DB.prepare(
+      `SELECT username, display_name, bio, job_title, company_name,
+              avatar_r2_key, seo_title, seo_description, seo_keywords
+       FROM bio_pages WHERE username = ? AND is_published = 1`
+    ).bind(username).first<ProfileMetaData>();
+
+    // No user found — fall through to SPA (shows React 404)
+    if (!profile) return next();
+
+    // Fetch the index.html shell
+    const url = new URL(c.req.url);
+    url.pathname = '/index.html';
+    const htmlRes = await c.env.ASSETS.fetch(new Request(url.toString(), { method: 'GET' }));
+    let html = await htmlRes.text();
+
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const metaTags = buildMetaTags(profile, baseUrl);
+    const jsonLd = buildJsonLd(profile, baseUrl);
+
+    // Replace the static <title> with populated meta tags + JSON-LD
+    html = html.replace(/<title>[^<]*<\/title>/, metaTags + '\n    ' + jsonLd);
+
+    return new Response(html, {
+      headers: {
+        'Content-Type': 'text/html;charset=UTF-8',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
+        'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
+      },
+    });
+  } catch {
+    // On error, fall through to normal SPA behavior
+    return next();
+  }
+});
 
 // SPA fallback — serve static assets, fall back to index.html for client-side routes
 app.all('*', async (c) => {

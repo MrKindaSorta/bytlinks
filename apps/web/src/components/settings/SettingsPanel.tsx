@@ -6,6 +6,7 @@ import { Crown, Check, AlertTriangle } from 'lucide-react';
 import { QrCodeSection } from './QrCodeSection';
 import { VerificationSection } from './VerificationSection';
 import { ExportSection } from './ExportSection';
+import { SeoSection } from './SeoSection';
 
 interface BillingStatus {
   plan: string;
@@ -105,6 +106,9 @@ export function SettingsPanel() {
 
       {/* Export */}
       <ExportSection username={page?.username} />
+
+      {/* SEO */}
+      <SeoSection />
 
       {/* Plan / Upgrade */}
       {loading ? (

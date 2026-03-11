@@ -223,6 +223,9 @@ export interface BioPage {
   show_company_card: boolean;
   show_address_page: boolean;
   show_address_card: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string | null;
   created_at: number;
 }
 

@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard } from 'lucide-react';
+import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
 import { SettingsPanel } from '../components/settings/SettingsPanel';
@@ -56,6 +57,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen bg-brand-bg overflow-hidden">
+      <PageHead title="Dashboard" noIndex />
       {showTemplates && (
         <TemplatePicker
           fullscreen

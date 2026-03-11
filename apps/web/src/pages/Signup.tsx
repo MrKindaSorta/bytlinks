@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 
 export default function Signup() {
@@ -30,6 +31,10 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center px-4">
+      <PageHead
+        title="Create your free page"
+        description="Set up your BytLinks page in under a minute. Free forever. No credit card required."
+      />
       <div className="w-full max-w-sm">
         <Link to="/" className="flex justify-center mb-10">
           <img src={logoSrc} alt="BytLinks" className="h-28" />

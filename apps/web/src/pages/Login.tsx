@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 
 export default function Login() {
@@ -28,6 +29,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center px-4">
+      <PageHead title="Log in" description="Log in to your BytLinks account." noIndex />
       <div className="w-full max-w-sm">
         <Link to="/" className="flex justify-center mb-10">
           <img src={logoSrc} alt="BytLinks" className="h-28" />
