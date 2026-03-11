@@ -13,6 +13,7 @@ import { verificationRoutes } from './routes/verification';
 import { importRoutes } from './routes/import';
 import { exportRoutes } from './routes/export';
 import { utilRoutes, eventRsvpRoutes } from './routes/utils';
+import { rolodexRoutes } from './routes/rolodex';
 
 export type Env = {
   DB: D1Database;
@@ -37,7 +38,7 @@ app.use('/api/*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('X-Frame-Options', 'DENY');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  c.header('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 });
 
@@ -64,6 +65,7 @@ app.route('/api/import', importRoutes);
 app.route('/api/export', exportRoutes);
 app.route('/api/utils', utilRoutes);
 app.route('/api/event-rsvps', eventRsvpRoutes);
+app.route('/api/rolodex', rolodexRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));

@@ -660,6 +660,46 @@ export interface BusinessCard {
   created_at?: string;
 }
 
+/** Snapshot of a contact's card data stored in the rolodex */
+export interface ContactSnapshot {
+  display_name: string | null;
+  bio: string | null;
+  job_title: string | null;
+  avatar_r2_key: string | null;
+  company_name: string | null;
+  phone: string | null;
+  address: string | null;
+  email: string | null;
+  theme: Record<string, unknown>;
+  social_links: Array<{ platform: string; url: string }>;
+}
+
+/** A saved contact in the user's rolodex */
+export interface RolodexEntry {
+  id: string;
+  owner_page_id: string;
+  contact_username: string;
+  contact_page_id: string | null;
+  contact_snapshot: ContactSnapshot;
+  notes: string;
+  saved_at: string;
+  last_refreshed_at: string;
+}
+
+/** A card exchange request between two users */
+export interface CardExchange {
+  id: string;
+  from_page_id: string;
+  from_username: string;
+  to_page_id: string;
+  to_username: string;
+  status: 'pending' | 'accepted' | 'declined';
+  card_snapshot: ContactSnapshot;
+  created_at: string;
+  responded_at: string | null;
+  expires_at: string;
+}
+
 /** Profile template definition for starter kits */
 export interface ProfileTemplate {
   id: string;

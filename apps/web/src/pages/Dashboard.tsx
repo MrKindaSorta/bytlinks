@@ -9,7 +9,7 @@ import { SettingsPanel } from '../components/settings/SettingsPanel';
 import { MyBytLink } from '../components/editor/MyBytLink';
 import { TemplatePicker } from '../components/templates/TemplatePicker';
 import { ManageSection } from '../components/manage/ManageSection';
-import { BusinessCardTab } from '../components/businesscard/BusinessCardTab';
+import { BusinessCardHub } from '../components/businesscard/BusinessCardHub';
 import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
 type DashboardTab = 'mybytlink' | 'card' | 'analytics' | 'settings' | 'manage';
@@ -129,8 +129,8 @@ export default function Dashboard() {
             <MyBytLink />
           </main>
         ) : activeTab === 'card' ? (
-          <main className="overflow-y-auto pb-20 lg:pb-0">
-            <BusinessCardTab />
+          <main className="flex flex-col pb-14 lg:pb-0">
+            <BusinessCardHub />
           </main>
         ) : activeTab === 'manage' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">
