@@ -9,7 +9,7 @@ billingRoutes.use('*', authMiddleware);
 
 const PLANS = {
   free: { name: 'Free', price: 0 },
-  pro: { name: 'Pro', price: 9 },
+  pro: { name: 'Pro', price: 9.99 },
 } as const;
 
 /**

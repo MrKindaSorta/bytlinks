@@ -39,7 +39,7 @@ export function SettingsPanel() {
       const res = await fetch('/api/billing/upgrade', { method: 'POST' });
       const json = await res.json();
       if (json.success) {
-        setBilling((prev) => prev ? { ...prev, plan: 'pro', plan_name: 'Pro', price: 9, has_payment_method: true } : prev);
+        setBilling((prev) => prev ? { ...prev, plan: 'pro', plan_name: 'Pro', price: 9.99, has_payment_method: true } : prev);
         // Reload to refresh JWT-based user state
         window.location.reload();
       }
@@ -69,10 +69,10 @@ export function SettingsPanel() {
   const isPro = billing?.plan === 'pro';
 
   const proFeatures = [
+    'All 19 content block types (up to 25)',
+    'Link scheduling & auto-expiry',
     'Remove BytLinks branding',
-    'Full analytics dashboard',
     'Priority support',
-    'Custom domain (coming soon)',
   ];
 
   return (
@@ -149,7 +149,7 @@ export function SettingsPanel() {
             </h2>
           </div>
           <p className="font-body text-sm text-brand-text-secondary mb-1">
-            $9/month
+            $9.99/month
           </p>
           <p className="font-body text-xs text-brand-text-muted mb-5">
             Cancel anytime. No contracts.

@@ -178,9 +178,9 @@ blockRoutes.post('/', async (c) => {
 
     if (!page) return c.json({ success: false, error: 'No page found' }, 404);
 
-    // Check plan limits — business uses pro limits; fallback to free
+    // Check plan limits — fallback to free
     const plan = user.plan || 'free';
-    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.pro;
+    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.free;
 
     const existingCount = await c.env.DB.prepare(
       'SELECT COUNT(*) as cnt FROM content_blocks WHERE page_id = ?'
@@ -319,7 +319,7 @@ blockRoutes.post('/:id/duplicate', async (c) => {
 
     // Check plan limits
     const plan = user.plan || 'free';
-    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.pro;
+    const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.free;
 
     const existingCount = await c.env.DB.prepare(
       'SELECT COUNT(*) as cnt FROM content_blocks WHERE page_id = ?'

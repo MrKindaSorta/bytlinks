@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { QrCode } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -145,6 +147,38 @@ function BlockGrid({ reduced }: { reduced: boolean }) {
   );
 }
 
+const ROLODEX_CONTACTS = [
+  { initials: 'MW', name: 'Marcus Webb', role: 'Brand Director, Ogilvy' },
+  { initials: 'PN', name: 'Priya Nair', role: 'Freelance UX Designer' },
+  { initials: 'JO', name: 'James Okonkwo', role: 'Co-founder, Fieldwork Studio' },
+];
+
+function RolodexMockup() {
+  return (
+    <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+      <div className="space-y-3 mb-4">
+        {ROLODEX_CONTACTS.map((c) => (
+          <div key={c.initials} className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-brand-surface-alt flex items-center justify-center shrink-0">
+              <span className="font-body text-xs font-medium text-brand-text-muted">{c.initials}</span>
+            </div>
+            <div>
+              <div className="font-body text-sm font-medium text-brand-text">{c.name}</div>
+              <div className="font-body text-xs text-brand-text-muted">{c.role}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-brand-border
+                         font-body text-xs font-medium text-brand-text-secondary
+                         hover:bg-brand-surface-alt transition-colors duration-150">
+        <QrCode className="w-3.5 h-3.5" />
+        Scan QR to add contact
+      </button>
+    </div>
+  );
+}
+
 function LayoutComparison() {
   return (
     <div className="flex items-end gap-4 justify-center">
@@ -204,6 +238,7 @@ interface FeaturePanel {
   copy: string;
   visual: React.ReactNode;
   reverse?: boolean;
+  cta?: boolean;
 }
 
 export function FeatureDeepDive() {
@@ -229,6 +264,14 @@ export function FeatureDeepDive() {
       copy: 'Your page uses a proper two-column desktop layout with distinct sections, not a narrow centered strip. When someone visits on a laptop, it feels like a real website — because it is one.',
       visual: <LayoutComparison />,
     },
+    {
+      label: 'For people who still go to places',
+      heading: 'Your digital card. Their real contact.',
+      copy: 'Share your card with a QR code at a conference. They scan it, see your links and details, save you to their Rolodex — no app download, no friction. You get their card back if they want to exchange. The only link-in-bio tool built for the room you\'re actually in.',
+      visual: <RolodexMockup />,
+      reverse: true,
+      cta: true,
+    },
   ];
 
   return (
@@ -244,7 +287,7 @@ export function FeatureDeepDive() {
           What makes it different
         </p>
         <h2 className="font-display text-3xl sm:text-4xl font-800 tracking-tight text-brand-text">
-          Three things you won't find elsewhere
+          Four things you won't find elsewhere
         </h2>
       </motion.div>
 
@@ -272,6 +315,14 @@ export function FeatureDeepDive() {
               <p className="font-body text-sm sm:text-base text-brand-text-secondary leading-relaxed max-w-lg">
                 {f.copy}
               </p>
+              {f.cta && (
+                <Link
+                  to="/signup"
+                  className="inline-block font-body text-sm font-medium text-brand-accent hover:text-brand-accent-hover transition-colors duration-150 mt-4"
+                >
+                  Try it free &rarr;
+                </Link>
+              )}
             </motion.div>
 
             {/* Visual side */}

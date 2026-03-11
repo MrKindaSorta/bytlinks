@@ -176,7 +176,7 @@ export interface Theme {
   desktopOverrides?: DesktopOverrides | null;
 }
 
-export type UserPlan = 'free' | 'pro' | 'business';
+export type UserPlan = 'free' | 'pro';
 
 export interface User {
   id: string;
