@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../index';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
+import { generateAccessToken } from '../utils/crypto';
 
 export const pageRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
@@ -241,9 +242,10 @@ pageRoutes.get('/me/cards', async (c) => {
     // Auto-seed a default card from existing show_*_card toggles (INSERT OR IGNORE prevents race-condition duplicates)
     if (cards.results.length === 0) {
       const id = crypto.randomUUID();
+      const token = generateAccessToken();
       await c.env.DB.prepare(
-        `INSERT OR IGNORE INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
-         VALUES (?, ?, 'My Card', 0, 1, 1, 0, ?, ?, ?, ?, 1, 'card')`
+        `INSERT OR IGNORE INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, access_token)
+         VALUES (?, ?, 'My Card', 0, 1, 1, 0, ?, ?, ?, ?, 1, ?)`
       ).bind(
         id,
         page.id,
@@ -251,8 +253,25 @@ pageRoutes.get('/me/cards', async (c) => {
         page.show_phone_card ? 1 : 0,
         page.show_company_card ? 1 : 0,
         page.show_address_card ? 1 : 0,
+        token,
       ).run();
 
+      cards = await c.env.DB.prepare(
+        'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
+      ).bind(page.id).all();
+    }
+
+    // Backfill access tokens for any cards that don't have one yet
+    const needTokens = cards.results.filter((row) => !row.access_token);
+    if (needTokens.length > 0) {
+      await Promise.all(
+        needTokens.map((row) => {
+          const token = generateAccessToken();
+          return c.env.DB.prepare(
+            'UPDATE business_cards SET access_token = ? WHERE id = ?'
+          ).bind(token, row.id).run();
+        })
+      );
       cards = await c.env.DB.prepare(
         'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
       ).bind(page.id).all();
@@ -292,11 +311,12 @@ pageRoutes.post('/me/cards', async (c) => {
 
     const id = crypto.randomUUID();
     const orderNum = count ? count.cnt : 0;
+    const token = generateAccessToken();
 
     await c.env.DB.prepare(
-      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, qr_target)
-       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, 'card')`
-    ).bind(id, page.id, `Card ${orderNum + 1}`, orderNum).run();
+      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, access_token)
+       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, ?)`
+    ).bind(id, page.id, `Card ${orderNum + 1}`, orderNum, token).run();
 
     const card = await c.env.DB.prepare(
       'SELECT * FROM business_cards WHERE id = ?'
@@ -328,7 +348,6 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
     show_company?: boolean;
     show_address?: boolean;
     show_socials?: boolean;
-    qr_target?: 'card' | 'profile';
   }>();
 
   try {
@@ -355,22 +374,12 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
         return c.json({ success: false, error: 'Label must be 1–100 characters' }, 400);
       }
     }
-    if (body.qr_target !== undefined) {
-      if (!['card', 'profile'].includes(body.qr_target)) {
-        return c.json({ success: false, error: 'qr_target must be "card" or "profile"' }, 400);
-      }
-    }
-
     const updates: string[] = [];
     const values: unknown[] = [];
 
     if (body.label !== undefined) {
       updates.push('label = ?');
       values.push(body.label);
-    }
-    if (body.qr_target !== undefined) {
-      updates.push('qr_target = ?');
-      values.push(body.qr_target);
     }
     for (const toggle of [
       'show_avatar', 'show_job_title', 'show_bio', 'show_email',
@@ -443,6 +452,41 @@ pageRoutes.delete('/me/cards/:cardId', async (c) => {
     return c.json({ success: true });
   } catch {
     return c.json({ success: false, error: 'Failed to delete card' }, 500);
+  }
+});
+
+/**
+ * POST /api/pages/me/cards/:cardId/regenerate-token — revoke old link, issue new one
+ */
+pageRoutes.post('/me/cards/:cardId/regenerate-token', async (c) => {
+  const user = c.get('user');
+  const cardId = c.req.param('cardId');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id FROM bio_pages WHERE user_id = ?'
+    ).bind(user.id).first<{ id: string }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'No page found' }, 404);
+    }
+
+    const card = await c.env.DB.prepare(
+      'SELECT id FROM business_cards WHERE id = ? AND page_id = ?'
+    ).bind(cardId, page.id).first();
+
+    if (!card) {
+      return c.json({ success: false, error: 'Card not found' }, 404);
+    }
+
+    const newToken = generateAccessToken();
+    await c.env.DB.prepare(
+      'UPDATE business_cards SET access_token = ? WHERE id = ?'
+    ).bind(newToken, cardId).run();
+
+    return c.json({ success: true, data: { access_token: newToken } });
+  } catch {
+    return c.json({ success: false, error: 'Failed to regenerate token' }, 500);
   }
 });
 

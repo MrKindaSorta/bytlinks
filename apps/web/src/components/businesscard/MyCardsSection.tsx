@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import {
   UserRoundPlus, Mail, Phone, Building2, MapPin, Share2,
   Plus, Trash2, ChevronLeft, ChevronRight, User as UserIcon, Briefcase, FileText,
-  Users, Radio, Settings2, X,
+  Users, Settings2, X, RefreshCw, Shield,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { usePage } from '../../hooks/usePage';
@@ -37,8 +37,6 @@ export function MyCardsSection() {
   }, [showSettings]);
 
   const username = page?.username ?? '';
-  const cardPageUrl = `https://www.bytlinks.com/${username}/card`;
-  const profileUrl = `https://www.bytlinks.com/${username}`;
   const vcardUrl = `/api/public/${username}/vcard`;
   const displayName = page?.display_name || username;
 
@@ -59,13 +57,15 @@ export function MyCardsSection() {
   }, [page]);
 
   const activeCard = cards[activeIndex] ?? null;
-  const qrUrl = activeCard?.qr_target === 'profile' ? profileUrl : cardPageUrl;
+  const cardUrl = activeCard?.access_token
+    ? `https://www.bytlinks.com/c/${activeCard.access_token}`
+    : '';
 
   const renderQr = useCallback(async () => {
     const canvas = qrCanvasRef.current;
-    if (!canvas || !username) return;
+    if (!canvas || !cardUrl) return;
     try {
-      await QRCode.toCanvas(canvas, qrUrl, {
+      await QRCode.toCanvas(canvas, cardUrl, {
         width: 120,
         margin: 1,
         color: { dark: '#1a1a2e', light: '#ffffff' },
@@ -73,7 +73,7 @@ export function MyCardsSection() {
       });
     } catch { /* silent */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qrUrl, username, loading]);
+  }, [cardUrl, loading]);
 
   useEffect(() => { renderQr(); }, [renderQr]);
 
@@ -117,11 +117,27 @@ export function MyCardsSection() {
     updateCard(activeCard.id, { label: activeCard.label });
   }
 
-  function toggleQrTarget() {
+  async function regenerateToken() {
     if (!activeCard) return;
-    const newTarget = activeCard.qr_target === 'card' ? 'profile' : 'card';
-    setCards((prev) => prev.map((c) => c.id === activeCard.id ? { ...c, qr_target: newTarget } : c));
-    updateCard(activeCard.id, { qr_target: newTarget } as Partial<BusinessCard>);
+    if (!window.confirm('Regenerate link? Anyone with the old link will no longer be able to view this card.')) return;
+    try {
+      const res = await fetch(`/api/pages/me/cards/${activeCard.id}/regenerate-token`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (json.success && json.data?.access_token) {
+        setCards((prev) => prev.map((c) =>
+          c.id === activeCard.id ? { ...c, access_token: json.data.access_token } : c
+        ));
+      } else {
+        setError('Failed to regenerate link');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch {
+      setError('Failed to regenerate link');
+      setTimeout(() => setError(null), 3000);
+    }
   }
 
   async function addCard() {
@@ -186,12 +202,13 @@ export function MyCardsSection() {
   }
 
   async function handleShare() {
+    if (!cardUrl) return;
     if (navigator.share) {
       try {
-        await navigator.share({ title: `${displayName} - Contact Card`, url: cardPageUrl });
+        await navigator.share({ title: `${displayName} - Contact Card`, url: cardUrl });
       } catch { /* cancelled */ }
     } else {
-      await navigator.clipboard.writeText(cardPageUrl);
+      await navigator.clipboard.writeText(cardUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -301,9 +318,10 @@ export function MyCardsSection() {
                   </div>
 
                   {/* Footer */}
-                  <div className="px-5 py-2.5 bg-white/5 border-t border-white/10">
-                    <p className="text-[11px] text-white/25 text-center tracking-wide">
-                      {activeCard?.label || 'My Card'} — bytlinks.com/{username}/card
+                  <div className="px-5 py-2.5 bg-white/5 border-t border-white/10 flex items-center justify-center gap-1.5">
+                    <Shield className="w-3 h-3 text-white/20" />
+                    <p className="text-[11px] text-white/25 tracking-wide">
+                      {activeCard?.label || 'My Card'} — Private link
                     </p>
                   </div>
 
@@ -405,7 +423,7 @@ export function MyCardsSection() {
                 onToggleField={toggleField}
                 onLabelChange={handleLabelChange}
                 onLabelBlur={handleLabelBlur}
-                onToggleQrTarget={toggleQrTarget}
+                onRegenerateToken={regenerateToken}
                 onAddCard={addCard}
                 onDeleteCard={deleteCard}
               />
@@ -428,7 +446,7 @@ function CardSettings({
   onToggleField,
   onLabelChange,
   onLabelBlur,
-  onToggleQrTarget,
+  onRegenerateToken,
   onAddCard,
   onDeleteCard,
 }: {
@@ -441,7 +459,7 @@ function CardSettings({
   onToggleField: (field: CardField) => void;
   onLabelChange: (label: string) => void;
   onLabelBlur: () => void;
-  onToggleQrTarget: () => void;
+  onRegenerateToken: () => void;
   onAddCard: () => void;
   onDeleteCard: () => void;
 }) {
@@ -462,7 +480,7 @@ function CardSettings({
       </div>
 
       {/* Label */}
-      <div className="mb-4">
+      <div>
         <div className="flex items-center justify-between mb-1">
           <label className="font-body text-xs font-medium text-brand-text-secondary">Card Name</label>
           <span className="font-body text-[10px] text-brand-text-muted tabular-nums">{card.label.length}/30</span>
@@ -491,27 +509,18 @@ function CardSettings({
         <FieldToggle icon={Users} label="Social Icons" checked={card.show_socials} onChange={() => onToggleField('show_socials')} />
       </div>
 
-      {/* QR Target */}
-      <div className="mt-5 pt-4 border-t border-brand-border">
-        <p className="font-body text-xs font-medium text-brand-text-secondary mb-2">QR Code Links To</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => { if (card.qr_target !== 'card') onToggleQrTarget(); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-              card.qr_target === 'card' ? 'border-brand-accent bg-brand-accent/10 text-brand-accent' : 'border-brand-border text-brand-text-secondary hover:bg-brand-surface-alt'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5" /> Card Page
-          </button>
-          <button
-            onClick={() => { if (card.qr_target !== 'profile') onToggleQrTarget(); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-              card.qr_target === 'profile' ? 'border-brand-accent bg-brand-accent/10 text-brand-accent' : 'border-brand-border text-brand-text-secondary hover:bg-brand-surface-alt'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5" /> Full Profile
-          </button>
-        </div>
+      {/* Link Security */}
+      <div className="pt-4 border-t border-brand-border">
+        <p className="font-body text-xs font-medium text-brand-text-secondary mb-2">Card Link</p>
+        <p className="font-body text-[11px] text-brand-text-muted mb-3">
+          Each card has a unique private link. Regenerating it will revoke all existing QR codes and shared links for this card.
+        </p>
+        <button
+          onClick={onRegenerateToken}
+          className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Regenerate Link
+        </button>
       </div>
 
       {saving && <p className="text-[11px] text-brand-text-muted text-right">Saving...</p>}

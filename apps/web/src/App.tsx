@@ -43,6 +43,7 @@ export function App() {
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/c/:token" element={<CardPage />} />
         <Route path="/:username/card" element={<CardPage />} />
         <Route path="/:username" element={<PublicPage />} />
       </Routes>

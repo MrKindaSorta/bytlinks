@@ -212,6 +212,21 @@ export async function verifyJwt(
 }
 
 // ---------------------------------------------------------------------------
+// Cryptographic access tokens (URL-safe, 22 chars = 131 bits entropy)
+// ---------------------------------------------------------------------------
+
+/** Generate a URL-safe random token (base62, 22 chars ≈ 131 bits). */
+export function generateAccessToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(22));
+  let token = '';
+  for (let i = 0; i < 22; i++) {
+    token += chars[bytes[i] % chars.length];
+  }
+  return token;
+}
+
+// ---------------------------------------------------------------------------
 // AES-GCM symmetric encryption for provider credentials
 // ---------------------------------------------------------------------------
 

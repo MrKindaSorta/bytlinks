@@ -464,24 +464,42 @@ function vcardEscape(value: string): string {
 }
 
 /**
- * GET /api/public/:username/card — fetch card-specific data for the public card page
+ * GET /api/public/card/:token — fetch a single card by its access token
+ * Rate-limited: 20 unique tokens per IP per hour to prevent enumeration
  */
-publicRoutes.get('/:username/card', async (c) => {
-  const username = c.req.param('username');
+publicRoutes.get('/card/:token', async (c) => {
+  const token = c.req.param('token');
+
+  // Validate token format (22 chars, alphanumeric)
+  if (!token || !/^[A-Za-z0-9]{22}$/.test(token)) {
+    return c.json({ success: false, error: 'Invalid card link' }, 400);
+  }
+
+  // Rate limit per IP: 20 card lookups per hour
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+  const allowed = await checkRateLimit(c.env.DB, `card-view:${ip}`, 20, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many requests. Please try again later.' }, 429);
+  }
 
   try {
-    const page = await c.env.DB.prepare(
-      'SELECT * FROM bio_pages WHERE username = ? AND is_published = 1'
-    ).bind(username).first();
+    const card = await c.env.DB.prepare(
+      'SELECT * FROM business_cards WHERE access_token = ?'
+    ).bind(token).first();
 
-    if (!page) {
-      return c.json({ success: false, error: 'Page not found' }, 404);
+    if (!card) {
+      return c.json({ success: false, error: 'Card not found' }, 404);
     }
 
-    const [cards, socialLinks, owner] = await Promise.all([
-      c.env.DB.prepare(
-        'SELECT * FROM business_cards WHERE page_id = ? ORDER BY order_num'
-      ).bind(page.id).all(),
+    const page = await c.env.DB.prepare(
+      'SELECT * FROM bio_pages WHERE id = ? AND is_published = 1'
+    ).bind(card.page_id).first();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Card not found' }, 404);
+    }
+
+    const [socialLinks, owner] = await Promise.all([
       c.env.DB.prepare(
         'SELECT * FROM social_links WHERE page_id = ? ORDER BY order_num'
       ).bind(page.id).all(),
@@ -489,26 +507,6 @@ publicRoutes.get('/:username/card', async (c) => {
         'SELECT email FROM users WHERE id = ?'
       ).bind(page.user_id).first<{ email: string }>(),
     ]);
-
-    // If no cards configured yet, return a default card with legacy show_*_card values
-    let cardConfigs = cards.results;
-    if (cardConfigs.length === 0) {
-      cardConfigs = [{
-        id: 'default',
-        page_id: page.id,
-        label: 'My Card',
-        order_num: 0,
-        show_avatar: 1,
-        show_job_title: 1,
-        show_bio: 0,
-        show_email: page.show_email_card ? 1 : 0,
-        show_phone: page.show_phone_card ? 1 : 0,
-        show_company: page.show_company_card ? 1 : 0,
-        show_address: page.show_address_card ? 1 : 0,
-        show_socials: 1,
-        qr_target: 'card',
-      }];
-    }
 
     let theme: Record<string, unknown> = {};
     try { theme = JSON.parse(page.theme as string); } catch { /* use empty theme */ }
@@ -529,20 +527,51 @@ publicRoutes.get('/:username/card', async (c) => {
           theme,
           show_branding: !!page.show_branding,
         },
-        cards: cardConfigs.map((row: Record<string, unknown>) => ({
-          ...row,
-          show_avatar: !!row.show_avatar,
-          show_job_title: !!row.show_job_title,
-          show_bio: !!row.show_bio,
-          show_email: !!row.show_email,
-          show_phone: !!row.show_phone,
-          show_company: !!row.show_company,
-          show_address: !!row.show_address,
-          show_socials: !!row.show_socials,
-        })),
+        card: {
+          id: card.id,
+          label: card.label,
+          show_avatar: !!card.show_avatar,
+          show_job_title: !!card.show_job_title,
+          show_bio: !!card.show_bio,
+          show_email: !!card.show_email,
+          show_phone: !!card.show_phone,
+          show_company: !!card.show_company,
+          show_address: !!card.show_address,
+          show_socials: !!card.show_socials,
+        },
         socialLinks: socialLinks.results,
       },
     });
+  } catch {
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+/**
+ * GET /api/public/:username/card — legacy route, returns first card only
+ */
+publicRoutes.get('/:username/card', async (c) => {
+  const username = c.req.param('username');
+
+  try {
+    const page = await c.env.DB.prepare(
+      'SELECT id FROM bio_pages WHERE username = ? AND is_published = 1'
+    ).bind(username).first<{ id: string }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Page not found' }, 404);
+    }
+
+    const card = await c.env.DB.prepare(
+      'SELECT access_token FROM business_cards WHERE page_id = ? ORDER BY order_num LIMIT 1'
+    ).bind(page.id).first<{ access_token: string }>();
+
+    if (!card?.access_token) {
+      return c.json({ success: false, error: 'No cards configured' }, 404);
+    }
+
+    // Redirect to the token-based URL
+    return c.json({ success: true, data: { redirect: `/c/${card.access_token}` } });
   } catch {
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }

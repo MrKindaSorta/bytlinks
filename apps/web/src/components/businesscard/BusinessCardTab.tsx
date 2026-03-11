@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import {
   UserRoundPlus, Mail, Phone, Building2, MapPin, QrCode, Share2,
   Plus, Trash2, ChevronLeft, ChevronRight, User, Briefcase, FileText,
-  Users, Radio,
+  Users, RefreshCw, Shield,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { usePage } from '../../hooks/usePage';
@@ -26,8 +26,6 @@ export function BusinessCardTab() {
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const username = page?.username ?? '';
-  const cardPageUrl = `https://www.bytlinks.com/${username}/card`;
-  const profileUrl = `https://www.bytlinks.com/${username}`;
   const vcardUrl = `/api/public/${username}/vcard`;
   const displayName = page?.display_name || username;
 
@@ -52,15 +50,15 @@ export function BusinessCardTab() {
   }, [page]);
 
   const activeCard = cards[activeIndex] ?? null;
-
-  // Render QR code — respects qr_target setting
-  const qrUrl = activeCard?.qr_target === 'profile' ? profileUrl : cardPageUrl;
+  const cardUrl = activeCard?.access_token
+    ? `https://www.bytlinks.com/c/${activeCard.access_token}`
+    : '';
 
   const renderQr = useCallback(async () => {
     const canvas = qrCanvasRef.current;
-    if (!canvas || !username) return;
+    if (!canvas || !cardUrl) return;
     try {
-      await QRCode.toCanvas(canvas, qrUrl, {
+      await QRCode.toCanvas(canvas, cardUrl, {
         width: 140,
         margin: 1,
         color: { dark: '#1a1a2e', light: '#ffffff' },
@@ -69,7 +67,7 @@ export function BusinessCardTab() {
     } catch {
       // silent
     }
-  }, [qrUrl, username]);
+  }, [cardUrl]);
 
   useEffect(() => {
     renderQr();
@@ -99,7 +97,6 @@ export function BusinessCardTab() {
     }
   }
 
-  // Toggle a boolean field
   function toggleField(field: CardField) {
     if (!activeCard) return;
     const newVal = !activeCard[field];
@@ -109,13 +106,11 @@ export function BusinessCardTab() {
     updateCard(activeCard.id, { [field]: newVal });
   }
 
-  // Update card label
   function handleLabelChange(label: string) {
     if (!activeCard) return;
     setCards((prev) =>
       prev.map((c) => c.id === activeCard.id ? { ...c, label } : c)
     );
-    // Debounced save handled by onBlur
   }
 
   function handleLabelBlur() {
@@ -123,17 +118,29 @@ export function BusinessCardTab() {
     updateCard(activeCard.id, { label: activeCard.label });
   }
 
-  // Toggle QR target
-  function toggleQrTarget() {
+  async function regenerateToken() {
     if (!activeCard) return;
-    const newTarget = activeCard.qr_target === 'card' ? 'profile' : 'card';
-    setCards((prev) =>
-      prev.map((c) => c.id === activeCard.id ? { ...c, qr_target: newTarget } : c)
-    );
-    updateCard(activeCard.id, { qr_target: newTarget } as Partial<BusinessCard>);
+    if (!window.confirm('Regenerate link? Anyone with the old link will no longer be able to view this card.')) return;
+    try {
+      const res = await fetch(`/api/pages/me/cards/${activeCard.id}/regenerate-token`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (json.success && json.data?.access_token) {
+        setCards((prev) => prev.map((c) =>
+          c.id === activeCard.id ? { ...c, access_token: json.data.access_token } : c
+        ));
+      } else {
+        setError('Failed to regenerate link');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch {
+      setError('Failed to regenerate link');
+      setTimeout(() => setError(null), 3000);
+    }
   }
 
-  // Add card
   async function addCard() {
     setError(null);
     try {
@@ -155,7 +162,6 @@ export function BusinessCardTab() {
     }
   }
 
-  // Delete card
   async function deleteCard() {
     if (!activeCard || cards.length <= 1) return;
     if (!window.confirm(`Delete "${activeCard.label}"? This cannot be undone.`)) return;
@@ -179,7 +185,6 @@ export function BusinessCardTab() {
     }
   }
 
-  // Share
   async function handleAddToContacts() {
     if (navigator.canShare) {
       try {
@@ -206,23 +211,23 @@ export function BusinessCardTab() {
   }
 
   async function handleShare() {
+    if (!cardUrl) return;
     if (navigator.share) {
       try {
         await navigator.share({
           title: `${displayName} - Contact Card`,
-          url: cardPageUrl,
+          url: cardUrl,
         });
       } catch {
         // user cancelled
       }
     } else {
-      await navigator.clipboard.writeText(cardPageUrl);
+      await navigator.clipboard.writeText(cardUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   }
 
-  // Swipe handlers
   function goTo(index: number) {
     setActiveIndex(Math.max(0, Math.min(cards.length - 1, index)));
   }
@@ -243,7 +248,6 @@ export function BusinessCardTab() {
 
   if (!page) return null;
 
-  // Build contact items for the active card
   const contactItems: { icon: typeof Mail; label: string; value: string }[] = [];
   if (activeCard?.show_email && user?.email) {
     contactItems.push({ icon: Mail, label: 'Email', value: user.email });
@@ -268,7 +272,7 @@ export function BusinessCardTab() {
           </h1>
         </div>
         <p className="font-body text-sm text-brand-text-secondary mb-6">
-          Configure up to 3 cards with different info. Share your card page — visitors swipe between them.
+          Create up to 3 cards with different info for different audiences. Each card gets a unique private link.
         </p>
 
         {loading ? (
@@ -284,10 +288,8 @@ export function BusinessCardTab() {
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
             >
-              {/* Card top section */}
               <div className="px-6 pt-8 pb-6">
                 <div className="flex items-start gap-5">
-                  {/* Avatar */}
                   {activeCard?.show_avatar !== false && (
                     <div className="shrink-0">
                       {avatarUrl ? (
@@ -306,7 +308,6 @@ export function BusinessCardTab() {
                     </div>
                   )}
 
-                  {/* Name + title */}
                   <div className="flex-1 min-w-0 pt-1">
                     <h2 className="text-xl font-800 text-white tracking-tight leading-tight truncate">
                       {displayName}
@@ -320,16 +321,13 @@ export function BusinessCardTab() {
                   </div>
                 </div>
 
-                {/* Bio */}
                 {activeCard?.show_bio && page.bio && (
                   <p className="text-sm text-white/50 mt-3 line-clamp-2">{page.bio}</p>
                 )}
               </div>
 
-              {/* Divider */}
               <div className="mx-6 border-t border-white/10" />
 
-              {/* Contact details + QR code */}
               <div className="px-6 py-5 flex gap-5">
                 <div className="flex-1 min-w-0 space-y-3">
                   {contactItems.map((item) => {
@@ -351,7 +349,6 @@ export function BusinessCardTab() {
                   )}
                 </div>
 
-                {/* QR Code */}
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="rounded-lg bg-white p-2">
                     <canvas ref={qrCanvasRef} width={140} height={140} className="block" role="img" aria-label="QR code for your business card" />
@@ -360,14 +357,13 @@ export function BusinessCardTab() {
                 </div>
               </div>
 
-              {/* Card label footer */}
-              <div className="px-6 py-3 bg-white/5 border-t border-white/10">
-                <p className="text-[11px] text-white/25 text-center tracking-wide">
-                  {activeCard?.label || 'My Card'} — bytlinks.com/{username}/card
+              <div className="px-6 py-3 bg-white/5 border-t border-white/10 flex items-center justify-center gap-1.5">
+                <Shield className="w-3 h-3 text-white/20" />
+                <p className="text-[11px] text-white/25 tracking-wide">
+                  {activeCard?.label || 'My Card'} — Private link
                 </p>
               </div>
 
-              {/* Desktop swipe arrows */}
               {cards.length > 1 && (
                 <>
                   {activeIndex > 0 && (
@@ -392,7 +388,6 @@ export function BusinessCardTab() {
               )}
             </div>
 
-            {/* Dots */}
             {cards.length > 1 && (
               <div className="flex items-center justify-center gap-2 py-3">
                 {cards.map((c, i) => (
@@ -496,97 +491,28 @@ export function BusinessCardTab() {
                   <p className="font-body text-xs font-medium text-brand-text-secondary">
                     Visible Fields
                   </p>
-                  <FieldToggle
-                    icon={User}
-                    label="Avatar"
-                    checked={activeCard.show_avatar}
-                    onChange={() => toggleField('show_avatar')}
-                  />
-                  <FieldToggle
-                    icon={Briefcase}
-                    label="Job Title"
-                    checked={activeCard.show_job_title}
-                    onChange={() => toggleField('show_job_title')}
-                  />
-                  <FieldToggle
-                    icon={FileText}
-                    label="Bio"
-                    checked={activeCard.show_bio}
-                    onChange={() => toggleField('show_bio')}
-                  />
-                  <FieldToggle
-                    icon={Mail}
-                    label="Email"
-                    checked={activeCard.show_email}
-                    onChange={() => toggleField('show_email')}
-                    disabled={!user?.email}
-                    hint={!user?.email ? 'No email on account' : undefined}
-                  />
-                  <FieldToggle
-                    icon={Phone}
-                    label="Phone"
-                    checked={activeCard.show_phone}
-                    onChange={() => toggleField('show_phone')}
-                    disabled={!page?.phone}
-                    hint={!page?.phone ? 'Add in profile editor' : undefined}
-                  />
-                  <FieldToggle
-                    icon={Building2}
-                    label="Company"
-                    checked={activeCard.show_company}
-                    onChange={() => toggleField('show_company')}
-                    disabled={!page?.company_name}
-                    hint={!page?.company_name ? 'Add in profile editor' : undefined}
-                  />
-                  <FieldToggle
-                    icon={MapPin}
-                    label="Address"
-                    checked={activeCard.show_address}
-                    onChange={() => toggleField('show_address')}
-                    disabled={!page?.address}
-                    hint={!page?.address ? 'Add in profile editor' : undefined}
-                  />
-                  <FieldToggle
-                    icon={Users}
-                    label="Social Icons"
-                    checked={activeCard.show_socials}
-                    onChange={() => toggleField('show_socials')}
-                  />
+                  <FieldToggle icon={User} label="Avatar" checked={activeCard.show_avatar} onChange={() => toggleField('show_avatar')} />
+                  <FieldToggle icon={Briefcase} label="Job Title" checked={activeCard.show_job_title} onChange={() => toggleField('show_job_title')} />
+                  <FieldToggle icon={FileText} label="Bio" checked={activeCard.show_bio} onChange={() => toggleField('show_bio')} />
+                  <FieldToggle icon={Mail} label="Email" checked={activeCard.show_email} onChange={() => toggleField('show_email')} disabled={!user?.email} hint={!user?.email ? 'No email on account' : undefined} />
+                  <FieldToggle icon={Phone} label="Phone" checked={activeCard.show_phone} onChange={() => toggleField('show_phone')} disabled={!page?.phone} hint={!page?.phone ? 'Add in profile editor' : undefined} />
+                  <FieldToggle icon={Building2} label="Company" checked={activeCard.show_company} onChange={() => toggleField('show_company')} disabled={!page?.company_name} hint={!page?.company_name ? 'Add in profile editor' : undefined} />
+                  <FieldToggle icon={MapPin} label="Address" checked={activeCard.show_address} onChange={() => toggleField('show_address')} disabled={!page?.address} hint={!page?.address ? 'Add in profile editor' : undefined} />
+                  <FieldToggle icon={Users} label="Social Icons" checked={activeCard.show_socials} onChange={() => toggleField('show_socials')} />
                 </div>
 
-                {/* QR Target */}
+                {/* Link Security */}
                 <div className="mt-5 pt-4 border-t border-brand-border">
-                  <p className="font-body text-xs font-medium text-brand-text-secondary mb-2">
-                    QR Code Links To
+                  <p className="font-body text-xs font-medium text-brand-text-secondary mb-2">Card Link</p>
+                  <p className="font-body text-[11px] text-brand-text-muted mb-3">
+                    Each card has a unique private link. Regenerating it will revoke all existing QR codes and shared links for this card.
                   </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        if (activeCard.qr_target !== 'card') toggleQrTarget();
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-                        activeCard.qr_target === 'card'
-                          ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                          : 'border-brand-border text-brand-text-secondary hover:bg-brand-surface-alt'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      Card Page
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (activeCard.qr_target !== 'profile') toggleQrTarget();
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-                        activeCard.qr_target === 'profile'
-                          ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                          : 'border-brand-border text-brand-text-secondary hover:bg-brand-surface-alt'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      Full Profile
-                    </button>
-                  </div>
+                  <button
+                    onClick={regenerateToken}
+                    className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Regenerate Link
+                  </button>
                 </div>
 
                 {saving && (
@@ -605,13 +531,13 @@ export function BusinessCardTab() {
               </h3>
               <ul className="font-body text-xs text-brand-text-secondary space-y-1.5">
                 <li>
-                  <strong className="text-brand-text">Share Card</strong> — Shares your public card page where visitors see your cards with swipe navigation.
+                  <strong className="text-brand-text">Private links</strong> — Each card has a unique, unguessable URL. Only people you share it with can view it.
                 </li>
                 <li>
                   <strong className="text-brand-text">Multiple cards</strong> — Create up to 3 cards with different fields visible on each. Great for separating work and personal info.
                 </li>
                 <li>
-                  <strong className="text-brand-text">QR Code</strong> — Choose whether scanning opens your card page or your full BytLinks profile.
+                  <strong className="text-brand-text">Revoke access</strong> — Regenerate a card's link to instantly revoke access from anyone who had the old link.
                 </li>
                 <li>
                   <strong className="text-brand-text">Add to Contacts</strong> — Opens the native contact dialog on mobile, or downloads a .vcf file on desktop.

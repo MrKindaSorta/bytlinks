@@ -656,7 +656,7 @@ export interface BusinessCard {
   show_company: boolean;
   show_address: boolean;
   show_socials: boolean;
-  qr_target: 'card' | 'profile';
+  access_token: string;
   created_at?: string;
 }
 
