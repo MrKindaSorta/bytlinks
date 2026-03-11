@@ -234,6 +234,25 @@
   }
 }
 
+/* ── QR Scanner: hide html5-qrcode library's built-in UI ── */
+#qr-scanner-viewport video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border: none !important;
+}
+
+#qr-scanner-viewport img[alt="Info icon"],
+#qr-scanner-viewport > div:not(:first-child) {
+  display: none !important;
+}
+
+/* Hide the library's shaded region / scan-region overlay — we draw our own */
+#qr-shaded-region,
+[id^="qr-shaded-region"] {
+  display: none !important;
+}
+
 /* ── Rolodex: Scanner scan-line sweep ── */
 @keyframes scan-line {
   0%, 100% { top: 10%; }

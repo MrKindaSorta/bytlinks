@@ -111,8 +111,8 @@ export function ScanSection({ onCardAdded }: ScanSectionProps) {
           { facingMode: 'environment' },
           {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
-            // Do NOT set aspectRatio — let the camera choose its native ratio
+            // No qrbox — we use our own custom viewfinder overlay
+            // No aspectRatio — let the camera choose its native ratio
           },
           (decodedText) => {
             if (cancelled || scanHandledRef.current) return;
@@ -148,13 +148,17 @@ export function ScanSection({ onCardAdded }: ScanSectionProps) {
             'Camera is in use by another app, or could not be started. Close other camera apps and try again.'
           );
         } else if (errStr.includes('OverconstrainedError')) {
-          // Retry without facingMode constraint
+          // Clean up the first failed instance before retrying
+          try { scannerRef.current?.clear(); } catch { /* ignore */ }
+          scannerRef.current = null;
+
+          // Retry with front camera
           try {
             const scanner = new Html5Qrcode('qr-scanner-viewport');
             scannerRef.current = scanner;
             await scanner.start(
               { facingMode: 'user' }, // fall back to front camera
-              { fps: 10, qrbox: { width: 250, height: 250 } },
+              { fps: 10 },
               (decodedText) => {
                 if (cancelled || scanHandledRef.current) return;
                 const match2 = decodedText.match(/bytlinks\.com\/([^\/?#]+)/);

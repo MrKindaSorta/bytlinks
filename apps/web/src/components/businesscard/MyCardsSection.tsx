@@ -62,7 +62,8 @@ export function MyCardsSection() {
         errorCorrectionLevel: 'M',
       });
     } catch { /* silent */ }
-  }, [qrUrl, username]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrUrl, username, loading]);
 
   useEffect(() => { renderQr(); }, [renderQr]);
 
