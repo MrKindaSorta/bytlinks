@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { TestimonialsData, TestimonialItem } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
+import { useSwipe } from '../../../hooks/useSwipe';
 
 /** Inline SVG star — filled or empty */
 function Star({ filled }: { filled: boolean }) {
@@ -77,7 +78,7 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
   const [current, setCurrent] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const [autoplayActive, setAutoplayActive] = useState(true);
-  const touchStartRef = useRef<number | null>(null);
+  const [showHint, setShowHint] = useState(true);
   const trackedRef = useRef(false);
 
   // Resolve settings with safe defaults (blocks saved before sprint 8 lack these fields)
@@ -85,6 +86,11 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
   const autoplayInterval = data.autoplay_interval ?? 5000;
   const showSourceBadge = data.show_source_badge !== false;
   const showRatingStars = data.show_rating_stars !== false;
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowHint(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   function handleNavigate() {
     if (!trackedRef.current && pageId) {
@@ -103,13 +109,13 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
     }, 200);
   }
 
-  function prev() {
+  const prev = useCallback(() => {
     goTo((current - 1 + data.items.length) % data.items.length);
-  }
+  }, [current, data.items.length, transitioning]);
 
-  function next() {
+  const next = useCallback(() => {
     goTo((current + 1) % data.items.length);
-  }
+  }, [current, data.items.length, transitioning]);
 
   // Autoplay — pause on hover
   useEffect(() => {
@@ -124,19 +130,10 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
     return () => clearInterval(interval);
   }, [autoplayEnabled, autoplayActive, data.items?.length, autoplayInterval]);
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartRef.current = e.touches[0].clientX;
-    setAutoplayActive(false);
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartRef.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartRef.current;
-    if (Math.abs(delta) > 40) {
-      delta < 0 ? next() : prev();
-    }
-    touchStartRef.current = null;
-  }
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => { setAutoplayActive(false); next(); },
+    onSwipeRight: () => { setAutoplayActive(false); prev(); },
+  });
 
   if (!data.items?.length) return null;
 
@@ -148,8 +145,7 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
       style={{ background: 'var(--page-surface-alt, rgba(128,128,128,0.05))' }}
       onMouseEnter={() => setAutoplayActive(false)}
       onMouseLeave={() => setAutoplayActive(true)}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      {...swipeHandlers}
     >
       {block.title && (
         <h3
@@ -232,6 +228,12 @@ export function TestimonialsRenderer({ block, pageId }: BlockRendererProps) {
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
+      )}
+      {showHint && data.items.length > 1 && (
+        <p className="text-xs text-brand-text-muted text-center mt-2 md:hidden transition-opacity duration-500"
+          style={{ opacity: showHint ? 1 : 0 }}>
+          Swipe to navigate
+        </p>
       )}
     </div>
   );

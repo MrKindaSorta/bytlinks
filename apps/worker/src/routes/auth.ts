@@ -70,8 +70,8 @@ authRoutes.post('/register', async (c) => {
         'INSERT INTO users (id, email, password_hash, plan) VALUES (?, ?, ?, ?)'
       ).bind(userId, email, passwordHash, 'free'),
       c.env.DB.prepare(
-        `INSERT INTO bio_pages (id, user_id, username, display_name, theme)
-         VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO bio_pages (id, user_id, username, display_name, theme, updated_at)
+         VALUES (?, ?, ?, ?, ?, unixepoch())`
       ).bind(pageId, userId, username, username, JSON.stringify({
         base: 'minimal',
         colorMode: 'preset',

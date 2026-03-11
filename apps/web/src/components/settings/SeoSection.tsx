@@ -14,7 +14,7 @@ interface SeoData {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
-  created_at: number | null;
+  updated_at: number | null;
 }
 
 function charCountColor(current: number, max: number): string {
@@ -39,7 +39,7 @@ export function SeoSection() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [createdAt, setCreatedAt] = useState<number | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -54,7 +54,7 @@ export function SeoSection() {
           setTitle(d.seo_title || '');
           setDescription(d.seo_description || '');
           setTags(d.seo_keywords ? d.seo_keywords.split(',').map((t: string) => t.trim()).filter(Boolean) : []);
-          setCreatedAt(d.created_at ?? null);
+          setUpdatedAt(d.updated_at ?? null);
         }
       })
       .catch(() => {})
@@ -144,7 +144,7 @@ export function SeoSection() {
           <div>
             <div className="font-body text-sm font-medium text-brand-text">Last updated</div>
             <div className="font-body text-xs text-brand-text-muted mt-0.5">
-              {createdAt ? relativeTime(createdAt) : 'Unknown'}
+              {updatedAt ? relativeTime(updatedAt) : 'Unknown'}
             </div>
           </div>
         </div>

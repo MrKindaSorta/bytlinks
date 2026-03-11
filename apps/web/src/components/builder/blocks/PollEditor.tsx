@@ -3,6 +3,7 @@ import { Plus, Trash2, RotateCcw, ChevronDown, ChevronUp, Settings } from 'lucid
 import { useBlocks } from '../../../hooks/useBlocks';
 import type { BlockEditorProps } from './blockEditorRegistry';
 import type { PollData, PollOption } from '@bytlinks/shared';
+import { SortableList } from '../SortableList';
 
 export function PollEditor({ block }: BlockEditorProps) {
   const { editBlock } = useBlocks();
@@ -44,15 +45,6 @@ export function PollEditor({ block }: BlockEditorProps) {
     save({ options: newOptions });
   }
 
-  function moveOption(fromIndex: number, direction: 'up' | 'down') {
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    if (toIndex < 0 || toIndex >= options.length) return;
-    const newOptions = [...options];
-    [newOptions[fromIndex], newOptions[toIndex]] = [newOptions[toIndex], newOptions[fromIndex]];
-    setOptions(newOptions);
-    save({ options: newOptions });
-  }
-
   function resetVotes() {
     const newOptions = options.map((o) => ({ ...o, votes: 0 }));
     setOptions(newOptions);
@@ -72,42 +64,35 @@ export function PollEditor({ block }: BlockEditorProps) {
         placeholder="Ask a question..."
         className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
       />
-      {options.map((option, i) => (
-        <div key={option.id} className="flex items-center gap-2">
-          {options.length > 1 && (
-            <div className="flex flex-col gap-0">
-              <button
-                onClick={() => moveOption(i, 'up')}
-                disabled={i === 0}
-                className="text-[10px] text-brand-text-muted hover:text-brand-text disabled:opacity-30 transition-colors duration-150"
-              >
-                &uarr;
-              </button>
-              <button
-                onClick={() => moveOption(i, 'down')}
-                disabled={i === options.length - 1}
-                className="text-[10px] text-brand-text-muted hover:text-brand-text disabled:opacity-30 transition-colors duration-150"
-              >
-                &darr;
-              </button>
+      <SortableList
+        items={options.map((opt, i) => ({ ...opt, id: opt.id || String(i) }))}
+        onReorder={(newOptions) => {
+          setOptions(newOptions);
+          save({ options: newOptions });
+        }}
+        renderItem={(option, dragHandle) => {
+          const i = options.findIndex((o) => (o.id || String(options.indexOf(o))) === option.id);
+          return (
+            <div className="flex items-center gap-2">
+              {options.length > 1 && dragHandle}
+              <input
+                type="text"
+                value={option.text}
+                onChange={(e) => updateOption(i, e.target.value)}
+                onBlur={() => save({ options })}
+                placeholder={`Option ${i + 1}`}
+                className="flex-1 px-3 py-1.5 rounded-md border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
+              />
+              <span className="font-body text-xs text-brand-text-muted w-8 text-right tabular-nums">{option.votes}</span>
+              {options.length > 2 && (
+                <button onClick={() => removeOption(i)} className="p-1 text-brand-text-muted hover:text-red-500 transition-colors duration-150">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
             </div>
-          )}
-          <input
-            type="text"
-            value={option.text}
-            onChange={(e) => updateOption(i, e.target.value)}
-            onBlur={() => save({ options })}
-            placeholder={`Option ${i + 1}`}
-            className="flex-1 px-3 py-1.5 rounded-md border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent"
-          />
-          <span className="font-body text-xs text-brand-text-muted w-8 text-right tabular-nums">{option.votes}</span>
-          {options.length > 2 && (
-            <button onClick={() => removeOption(i)} className="p-1 text-brand-text-muted hover:text-red-500 transition-colors duration-150">
-              <Trash2 className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      ))}
+          );
+        }}
+      />
       <div className="flex items-center justify-between">
         <button
           onClick={addOption}

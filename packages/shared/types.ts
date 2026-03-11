@@ -661,6 +661,15 @@ export interface BusinessCard {
   show_socials: boolean;
   access_token: string;
   created_at?: string;
+  /** Per-card overrides — only used by Cards 2+ (order_num > 0). Card 1 mirrors bio_pages. */
+  override_display_name?: string | null;
+  override_bio?: string | null;
+  override_job_title?: string | null;
+  override_profession?: string | null;
+  override_phone?: string | null;
+  override_company_name?: string | null;
+  override_address?: string | null;
+  override_email?: string | null;
 }
 
 /** Snapshot of a contact's card data stored in the rolodex */

@@ -212,6 +212,7 @@ blockRoutes.post('/', async (c) => {
       currentOrder.push(entry);
     }
 
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.prepare(
       'UPDATE bio_pages SET section_order = ? WHERE id = ?'
     ).bind(JSON.stringify(currentOrder), page.id).run();
@@ -352,6 +353,7 @@ blockRoutes.post('/:id/duplicate', async (c) => {
       currentOrder.push(`block:${newId}`);
     }
 
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.prepare(
       'UPDATE bio_pages SET section_order = ? WHERE id = ?'
     ).bind(JSON.stringify(currentOrder), page.id).run();
@@ -405,6 +407,7 @@ blockRoutes.delete('/:id', async (c) => {
       : ['social_links', 'links'];
     const newOrder = currentOrder.filter((entry) => entry !== `block:${blockId}`);
 
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.prepare(
       'UPDATE bio_pages SET section_order = ? WHERE id = ?'
     ).bind(JSON.stringify(newOrder), page.id).run();

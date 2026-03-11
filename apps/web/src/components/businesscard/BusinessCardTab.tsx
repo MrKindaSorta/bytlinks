@@ -248,18 +248,31 @@ export function BusinessCardTab() {
 
   if (!page) return null;
 
+  // Resolve card values: Card 1 uses profile, Cards 2+ use overrides
+  const isPrimary = activeCard?.order_num === 0;
+  const rv = (override: string | null | undefined, pageVal: string | null | undefined) =>
+    isPrimary ? (pageVal ?? '') : (override ?? pageVal ?? '');
+
+  const resolvedDisplayName = rv(activeCard?.override_display_name, page?.display_name) || username;
+  const resolvedJobTitle = rv(activeCard?.override_job_title, page?.job_title);
+  const resolvedBio = rv(activeCard?.override_bio, page?.bio);
+  const resolvedCompany = rv(activeCard?.override_company_name, page?.company_name);
+  const resolvedPhone = rv(activeCard?.override_phone, page?.phone);
+  const resolvedAddress = rv(activeCard?.override_address, page?.address);
+  const resolvedEmail = rv(activeCard?.override_email, user?.email);
+
   const contactItems: { icon: typeof Mail; label: string; value: string }[] = [];
-  if (activeCard?.show_email && user?.email) {
-    contactItems.push({ icon: Mail, label: 'Email', value: user.email });
+  if (activeCard?.show_email && resolvedEmail) {
+    contactItems.push({ icon: Mail, label: 'Email', value: resolvedEmail });
   }
-  if (activeCard?.show_phone && page.phone) {
-    contactItems.push({ icon: Phone, label: 'Phone', value: page.phone });
+  if (activeCard?.show_phone && resolvedPhone) {
+    contactItems.push({ icon: Phone, label: 'Phone', value: resolvedPhone });
   }
-  if (activeCard?.show_company && page.company_name) {
-    contactItems.push({ icon: Building2, label: 'Company', value: page.company_name });
+  if (activeCard?.show_company && resolvedCompany) {
+    contactItems.push({ icon: Building2, label: 'Company', value: resolvedCompany });
   }
-  if (activeCard?.show_address && page.address) {
-    contactItems.push({ icon: MapPin, label: 'Address', value: page.address });
+  if (activeCard?.show_address && resolvedAddress) {
+    contactItems.push({ icon: MapPin, label: 'Address', value: resolvedAddress });
   }
 
   return (
@@ -310,19 +323,19 @@ export function BusinessCardTab() {
 
                   <div className="flex-1 min-w-0 pt-1">
                     <h2 className="text-xl font-800 text-white tracking-tight leading-tight truncate">
-                      {displayName}
+                      {resolvedDisplayName}
                     </h2>
-                    {activeCard?.show_job_title !== false && page.job_title && (
-                      <p className="text-sm text-white/60 mt-0.5 truncate">{page.job_title}</p>
+                    {activeCard?.show_job_title !== false && resolvedJobTitle && (
+                      <p className="text-sm text-white/60 mt-0.5 truncate">{resolvedJobTitle}</p>
                     )}
-                    {activeCard?.show_company && page.company_name && (
-                      <p className="text-sm font-medium text-white/40 mt-0.5 truncate">{page.company_name}</p>
+                    {activeCard?.show_company && resolvedCompany && (
+                      <p className="text-sm font-medium text-white/40 mt-0.5 truncate">{resolvedCompany}</p>
                     )}
                   </div>
                 </div>
 
-                {activeCard?.show_bio && page.bio && (
-                  <p className="text-sm text-white/50 mt-3 line-clamp-2">{page.bio}</p>
+                {activeCard?.show_bio && resolvedBio && (
+                  <p className="text-sm text-white/50 mt-3 line-clamp-2">{resolvedBio}</p>
                 )}
               </div>
 
@@ -451,7 +464,7 @@ export function BusinessCardTab() {
                         Add Card
                       </button>
                     )}
-                    {cards.length > 1 && (
+                    {cards.length > 1 && !isPrimary && (
                       <button
                         onClick={deleteCard}
                         className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
@@ -462,6 +475,14 @@ export function BusinessCardTab() {
                     )}
                   </div>
                 </div>
+
+                {/* Profile sync indicator for Card 1 */}
+                {isPrimary && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-accent/10 text-brand-accent font-body text-xs font-medium mb-4">
+                    <RefreshCw className="w-3 h-3" />
+                    Synced with your profile
+                  </div>
+                )}
 
                 {/* Card label */}
                 <div className="mb-4">
@@ -486,6 +507,38 @@ export function BusinessCardTab() {
                   />
                 </div>
 
+                {/* Override fields for Cards 2+ */}
+                {!isPrimary && (
+                  <div className="space-y-3 mb-4">
+                    <p className="font-body text-xs font-medium text-brand-text-secondary">Card Details</p>
+                    {([
+                      ['override_display_name', 'Display Name', 'text'] as const,
+                      ['override_job_title', 'Job Title', 'text'] as const,
+                      ['override_bio', 'Bio', 'text'] as const,
+                      ['override_email', 'Email', 'email'] as const,
+                      ['override_phone', 'Phone', 'tel'] as const,
+                      ['override_company_name', 'Company', 'text'] as const,
+                      ['override_address', 'Address', 'text'] as const,
+                    ] as const).map(([field, placeholder, type]) => (
+                      <input
+                        key={field}
+                        type={type}
+                        value={(activeCard as unknown as Record<string, string | null>)[field] ?? ''}
+                        onChange={(e) => {
+                          setCards((prev) => prev.map((c) =>
+                            c.id === activeCard.id ? { ...c, [field]: e.target.value } : c
+                          ));
+                        }}
+                        onBlur={() => updateCard(activeCard.id, { [field]: (activeCard as unknown as Record<string, string | null>)[field] })}
+                        className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg
+                                   font-body text-sm text-brand-text placeholder:text-brand-text-muted
+                                   focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent"
+                        placeholder={placeholder}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {/* Field toggles */}
                 <div className="space-y-2.5">
                   <p className="font-body text-xs font-medium text-brand-text-secondary">
@@ -494,10 +547,10 @@ export function BusinessCardTab() {
                   <FieldToggle icon={User} label="Avatar" checked={activeCard.show_avatar} onChange={() => toggleField('show_avatar')} />
                   <FieldToggle icon={Briefcase} label="Job Title" checked={activeCard.show_job_title} onChange={() => toggleField('show_job_title')} />
                   <FieldToggle icon={FileText} label="Bio" checked={activeCard.show_bio} onChange={() => toggleField('show_bio')} />
-                  <FieldToggle icon={Mail} label="Email" checked={activeCard.show_email} onChange={() => toggleField('show_email')} disabled={!user?.email} hint={!user?.email ? 'No email on account' : undefined} />
-                  <FieldToggle icon={Phone} label="Phone" checked={activeCard.show_phone} onChange={() => toggleField('show_phone')} disabled={!page?.phone} hint={!page?.phone ? 'Add in profile editor' : undefined} />
-                  <FieldToggle icon={Building2} label="Company" checked={activeCard.show_company} onChange={() => toggleField('show_company')} disabled={!page?.company_name} hint={!page?.company_name ? 'Add in profile editor' : undefined} />
-                  <FieldToggle icon={MapPin} label="Address" checked={activeCard.show_address} onChange={() => toggleField('show_address')} disabled={!page?.address} hint={!page?.address ? 'Add in profile editor' : undefined} />
+                  <FieldToggle icon={Mail} label="Email" checked={activeCard.show_email} onChange={() => toggleField('show_email')} />
+                  <FieldToggle icon={Phone} label="Phone" checked={activeCard.show_phone} onChange={() => toggleField('show_phone')} />
+                  <FieldToggle icon={Building2} label="Company" checked={activeCard.show_company} onChange={() => toggleField('show_company')} />
+                  <FieldToggle icon={MapPin} label="Address" checked={activeCard.show_address} onChange={() => toggleField('show_address')} />
                   <FieldToggle icon={Users} label="Social Icons" checked={activeCard.show_socials} onChange={() => toggleField('show_socials')} />
                 </div>
 

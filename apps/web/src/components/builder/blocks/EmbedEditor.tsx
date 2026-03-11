@@ -57,7 +57,7 @@ export function EmbedEditor({ block }: BlockEditorProps) {
           value={embedUrl}
           onChange={(e) => setEmbedUrl(e.target.value)}
           onBlur={() => save(embedUrl)}
-          placeholder="Paste a YouTube, Spotify, SoundCloud, Vimeo, Apple Music, Tidal, Bandcamp, or Substack URL"
+          placeholder="Paste a YouTube, Spotify, SoundCloud, Vimeo, Apple Music, Tidal, Bandcamp, Substack, or Tweet URL"
           className={`w-full px-3 py-2 rounded-lg border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none transition-colors duration-150
             ${!isValid && embedUrl.trim() ? 'border-red-400 focus:border-red-500' : 'border-brand-border focus:border-brand-accent'}`}
         />

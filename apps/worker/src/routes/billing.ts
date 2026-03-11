@@ -48,6 +48,7 @@ billingRoutes.post('/upgrade', async (c) => {
   const user = c.get('user');
 
   try {
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.batch([
       c.env.DB.prepare(
         "UPDATE users SET plan = 'pro', stripe_customer_id = ? WHERE id = ?"
@@ -79,6 +80,7 @@ billingRoutes.post('/downgrade', async (c) => {
   const user = c.get('user');
 
   try {
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.batch([
       c.env.DB.prepare(
         "UPDATE users SET plan = 'free', stripe_customer_id = NULL WHERE id = ?"

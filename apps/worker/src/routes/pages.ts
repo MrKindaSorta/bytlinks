@@ -38,6 +38,7 @@ pageRoutes.post('/avatar', async (c) => {
       httpMetadata: { contentType: file.type },
     });
 
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.prepare(
       'UPDATE bio_pages SET avatar_r2_key = ? WHERE user_id = ?'
     ).bind(r2Key, user.id).run();
@@ -210,6 +211,7 @@ pageRoutes.put('/me', async (c) => {
 
     values.push(page.id);
 
+    // updated_at is maintained by bio_pages_updated_at trigger
     await c.env.DB.prepare(
       `UPDATE bio_pages SET ${updates.join(', ')} WHERE id = ?`
     ).bind(...values).run();
@@ -313,10 +315,30 @@ pageRoutes.post('/me/cards', async (c) => {
     const orderNum = count ? count.cnt : 0;
     const token = generateAccessToken();
 
+    // Cards 2+ get a snapshot of current profile values as their initial overrides
+    const pageData = await c.env.DB.prepare(
+      'SELECT display_name, bio, job_title, profession, phone, company_name, address FROM bio_pages WHERE id = ?'
+    ).bind(page.id).first<Record<string, string | null>>();
+
+    const ownerRow = await c.env.DB.prepare(
+      'SELECT email FROM users WHERE id = ?'
+    ).bind(user.id).first<{ email: string }>();
+
     await c.env.DB.prepare(
-      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, access_token)
-       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, ?)`
-    ).bind(id, page.id, `Card ${orderNum + 1}`, orderNum, token).run();
+      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, access_token,
+       override_display_name, override_bio, override_job_title, override_profession, override_phone, override_company_name, override_address, override_email)
+       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      id, page.id, `Card ${orderNum + 1}`, orderNum, token,
+      pageData?.display_name ?? null,
+      pageData?.bio ?? null,
+      pageData?.job_title ?? null,
+      pageData?.profession ?? null,
+      pageData?.phone ?? null,
+      pageData?.company_name ?? null,
+      pageData?.address ?? null,
+      ownerRow?.email ?? null,
+    ).run();
 
     const card = await c.env.DB.prepare(
       'SELECT * FROM business_cards WHERE id = ?'
@@ -348,6 +370,14 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
     show_company?: boolean;
     show_address?: boolean;
     show_socials?: boolean;
+    override_display_name?: string | null;
+    override_bio?: string | null;
+    override_job_title?: string | null;
+    override_profession?: string | null;
+    override_phone?: string | null;
+    override_company_name?: string | null;
+    override_address?: string | null;
+    override_email?: string | null;
   }>();
 
   try {
@@ -359,10 +389,10 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
       return c.json({ success: false, error: 'No page found' }, 404);
     }
 
-    // Verify card belongs to this user's page
+    // Verify card belongs to this user's page — include order_num for primary card detection
     const card = await c.env.DB.prepare(
-      'SELECT id FROM business_cards WHERE id = ? AND page_id = ?'
-    ).bind(cardId, page.id).first();
+      'SELECT id, order_num FROM business_cards WHERE id = ? AND page_id = ?'
+    ).bind(cardId, page.id).first<{ id: string; order_num: number }>();
 
     if (!card) {
       return c.json({ success: false, error: 'Card not found' }, 404);
@@ -391,8 +421,57 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
       }
     }
 
+    // Handle override fields based on card type
+    const overrideFields = [
+      'override_display_name', 'override_bio', 'override_job_title',
+      'override_profession', 'override_phone', 'override_company_name',
+      'override_address', 'override_email',
+    ] as const;
+
+    // Map override field names to bio_pages column names for Card 1 write-through
+    const bioFieldMap: Record<string, string> = {
+      override_display_name: 'display_name',
+      override_bio: 'bio',
+      override_job_title: 'job_title',
+      override_profession: 'profession',
+      override_phone: 'phone',
+      override_company_name: 'company_name',
+      override_address: 'address',
+    };
+
+    if (card.order_num === 0) {
+      // Card 1: write-through to bio_pages (override columns stay NULL)
+      const bioUpdates: string[] = [];
+      const bioValues: unknown[] = [];
+      for (const field of overrideFields) {
+        if ((body as Record<string, unknown>)[field] !== undefined) {
+          const bioCol = bioFieldMap[field];
+          if (bioCol) {
+            bioUpdates.push(`${bioCol} = ?`);
+            bioValues.push((body as Record<string, unknown>)[field]);
+          }
+          // override_email for Card 1 is ignored (email lives on users table)
+        }
+      }
+      if (bioUpdates.length > 0) {
+        bioValues.push(page.id);
+        // updated_at is maintained by bio_pages_updated_at trigger
+        await c.env.DB.prepare(
+          `UPDATE bio_pages SET ${bioUpdates.join(', ')} WHERE id = ?`
+        ).bind(...bioValues).run();
+      }
+    } else {
+      // Cards 2+: write to the override columns on business_cards
+      for (const field of overrideFields) {
+        if ((body as Record<string, unknown>)[field] !== undefined) {
+          updates.push(`${field} = ?`);
+          values.push((body as Record<string, unknown>)[field]);
+        }
+      }
+    }
+
     if (updates.length === 0) {
-      return c.json({ success: false, error: 'No fields to update' }, 400);
+      return c.json({ success: true });
     }
 
     values.push(cardId);
@@ -437,6 +516,11 @@ pageRoutes.delete('/me/cards/:cardId', async (c) => {
 
     if (count && count.cnt <= 1) {
       return c.json({ success: false, error: 'Cannot delete your only card' }, 400);
+    }
+
+    // Card 1 (primary / profile-synced) cannot be deleted
+    if (card.order_num === 0) {
+      return c.json({ success: false, error: 'Cannot delete your primary card' }, 400);
     }
 
     // Delete + re-normalize in a batch for atomicity

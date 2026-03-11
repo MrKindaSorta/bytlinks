@@ -79,6 +79,13 @@ export const EMBED_PROVIDERS: EmbedProvider[] = [
     getEmbedSrc: (url) => url.endsWith('/embed') ? url : `${url}/embed`,
     aspectRatio: '16 / 9',
   },
+  {
+    id: 'tweet',
+    label: 'Tweet / X',
+    match: /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/,
+    getEmbedSrc: (url) => `https://twitframe.com/show?url=${encodeURIComponent(url)}`,
+    height: 300,
+  },
 ];
 
 /** Detect provider from a URL. Returns null if no match. */

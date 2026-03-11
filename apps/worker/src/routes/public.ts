@@ -511,19 +511,24 @@ publicRoutes.get('/card/:token', async (c) => {
     let theme: Record<string, unknown> = {};
     try { theme = JSON.parse(page.theme as string); } catch { /* use empty theme */ }
 
+    // Resolve data: Card 1 (order_num=0) uses bio_pages, Cards 2+ use override fields
+    const isPrimary = Number(card.order_num) === 0;
+    const resolve = (override: unknown, fallback: unknown) =>
+      isPrimary ? (fallback ?? null) : ((override as string) ?? (fallback as string) ?? null);
+
     return c.json({
       success: true,
       data: {
         page: {
           username: page.username,
-          display_name: page.display_name,
-          bio: page.bio,
-          job_title: page.job_title ?? null,
+          display_name: resolve(card.override_display_name, page.display_name),
+          bio: resolve(card.override_bio, page.bio),
+          job_title: resolve(card.override_job_title, page.job_title),
           avatar_r2_key: page.avatar_r2_key,
-          company_name: page.company_name ?? null,
-          phone: page.phone ?? null,
-          address: page.address ?? null,
-          email: owner?.email ?? null,
+          company_name: resolve(card.override_company_name, page.company_name),
+          phone: resolve(card.override_phone, page.phone),
+          address: resolve(card.override_address, page.address),
+          email: resolve(card.override_email, owner?.email),
           theme,
           show_branding: !!page.show_branding,
         },

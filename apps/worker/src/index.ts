@@ -100,12 +100,13 @@ app.get('/sitemap.xml', async (c) => {
     // TODO: When page privacy/visibility feature is implemented,
     // add a WHERE clause here to exclude private/unlisted pages.
     // See: migrations/023_seo_fields.sql for context.
+    // updated_at column added in migration 024_bio_pages_updated_at.sql
     const { results } = await c.env.DB.prepare(
-      'SELECT username, created_at FROM bio_pages WHERE is_published = 1 ORDER BY created_at DESC LIMIT 10000'
-    ).all<{ username: string; created_at: number }>();
+      'SELECT username, updated_at FROM bio_pages WHERE is_published = 1 ORDER BY updated_at DESC LIMIT 10000'
+    ).all<{ username: string; updated_at: number }>();
 
     const userUrls = (results || []).map((row) => {
-      const date = new Date(row.created_at * 1000).toISOString().split('T')[0];
+      const date = new Date(row.updated_at * 1000).toISOString().split('T')[0];
       return `  <url>
     <loc>${baseUrl}/${encodeURIComponent(row.username)}</loc>
     <lastmod>${date}</lastmod>

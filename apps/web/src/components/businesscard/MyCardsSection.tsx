@@ -234,11 +234,24 @@ export function MyCardsSection() {
 
   if (!page) return null;
 
+  // Resolve card values: Card 1 uses profile, Cards 2+ use overrides
+  const isPrimary = activeCard?.order_num === 0;
+  const rv = (override: string | null | undefined, pageVal: string | null | undefined) =>
+    isPrimary ? (pageVal ?? '') : (override ?? pageVal ?? '');
+
+  const resolvedDisplayName = rv(activeCard?.override_display_name, page?.display_name) || username;
+  const resolvedJobTitle = rv(activeCard?.override_job_title, page?.job_title);
+  const resolvedBio = rv(activeCard?.override_bio, page?.bio);
+  const resolvedCompany = rv(activeCard?.override_company_name, page?.company_name);
+  const resolvedPhone = rv(activeCard?.override_phone, page?.phone);
+  const resolvedAddress = rv(activeCard?.override_address, page?.address);
+  const resolvedEmail = rv(activeCard?.override_email, user?.email);
+
   const contactItems: { icon: typeof Mail; label: string; value: string }[] = [];
-  if (activeCard?.show_email && user?.email) contactItems.push({ icon: Mail, label: 'Email', value: user.email });
-  if (activeCard?.show_phone && page.phone) contactItems.push({ icon: Phone, label: 'Phone', value: page.phone });
-  if (activeCard?.show_company && page.company_name) contactItems.push({ icon: Building2, label: 'Company', value: page.company_name });
-  if (activeCard?.show_address && page.address) contactItems.push({ icon: MapPin, label: 'Address', value: page.address });
+  if (activeCard?.show_email && resolvedEmail) contactItems.push({ icon: Mail, label: 'Email', value: resolvedEmail });
+  if (activeCard?.show_phone && resolvedPhone) contactItems.push({ icon: Phone, label: 'Phone', value: resolvedPhone });
+  if (activeCard?.show_company && resolvedCompany) contactItems.push({ icon: Building2, label: 'Company', value: resolvedCompany });
+  if (activeCard?.show_address && resolvedAddress) contactItems.push({ icon: MapPin, label: 'Address', value: resolvedAddress });
 
   return (
     <div className="flex flex-col h-full">
@@ -274,17 +287,17 @@ export function MyCardsSection() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0 pt-1">
-                        <h2 className="text-lg lg:text-xl font-800 text-white tracking-tight leading-tight truncate">{displayName}</h2>
-                        {activeCard?.show_job_title !== false && page.job_title && (
-                          <p className="text-sm text-white/60 mt-0.5 truncate">{page.job_title}</p>
+                        <h2 className="text-lg lg:text-xl font-800 text-white tracking-tight leading-tight truncate">{resolvedDisplayName}</h2>
+                        {activeCard?.show_job_title !== false && resolvedJobTitle && (
+                          <p className="text-sm text-white/60 mt-0.5 truncate">{resolvedJobTitle}</p>
                         )}
-                        {activeCard?.show_company && page.company_name && (
-                          <p className="text-sm font-medium text-white/40 mt-0.5 truncate">{page.company_name}</p>
+                        {activeCard?.show_company && resolvedCompany && (
+                          <p className="text-sm font-medium text-white/40 mt-0.5 truncate">{resolvedCompany}</p>
                         )}
                       </div>
                     </div>
-                    {activeCard?.show_bio && page.bio && (
-                      <p className="text-sm text-white/50 mt-2 line-clamp-2">{page.bio}</p>
+                    {activeCard?.show_bio && resolvedBio && (
+                      <p className="text-sm text-white/50 mt-2 line-clamp-2">{resolvedBio}</p>
                     )}
                   </div>
 
@@ -426,6 +439,13 @@ export function MyCardsSection() {
                 onRegenerateToken={regenerateToken}
                 onAddCard={addCard}
                 onDeleteCard={deleteCard}
+                onOverrideChange={(field, value) => {
+                  setCards((prev) => prev.map((c) => c.id === activeCard.id ? { ...c, [field]: value } : c));
+                }}
+                onOverrideBlur={(field) => {
+                  if (!activeCard) return;
+                  updateCard(activeCard.id, { [field]: (activeCard as unknown as Record<string, unknown>)[field] });
+                }}
               />
             </div>
           </div>
@@ -439,8 +459,6 @@ export function MyCardsSection() {
 function CardSettings({
   card,
   cards,
-  page,
-  user,
   saving,
   error,
   onToggleField,
@@ -449,6 +467,8 @@ function CardSettings({
   onRegenerateToken,
   onAddCard,
   onDeleteCard,
+  onOverrideChange,
+  onOverrideBlur,
 }: {
   card: BusinessCard;
   cards: BusinessCard[];
@@ -462,7 +482,13 @@ function CardSettings({
   onRegenerateToken: () => void;
   onAddCard: () => void;
   onDeleteCard: () => void;
+  onOverrideChange: (field: string, value: string) => void;
+  onOverrideBlur: (field: string) => void;
 }) {
+  const isPrimary = card.order_num === 0;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent';
+
   return (
     <div className="space-y-5">
       {/* Card management actions */}
@@ -472,12 +498,20 @@ function CardSettings({
             <Plus className="w-3.5 h-3.5" /> Add Card
           </button>
         )}
-        {cards.length > 1 && (
+        {cards.length > 1 && !isPrimary && (
           <button onClick={onDeleteCard} className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors">
             <Trash2 className="w-3.5 h-3.5" /> Delete
           </button>
         )}
       </div>
+
+      {/* Profile sync indicator for Card 1 */}
+      {isPrimary && (
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-accent/10 text-brand-accent font-body text-xs font-medium">
+          <RefreshCw className="w-3 h-3" />
+          Synced with your profile
+        </div>
+      )}
 
       {/* Label */}
       <div>
@@ -491,10 +525,73 @@ function CardSettings({
           onChange={(e) => onLabelChange(e.target.value)}
           onBlur={onLabelBlur}
           maxLength={30}
-          className="w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent"
+          className={inputCls}
           placeholder="e.g. Work, Personal, Networking"
         />
       </div>
+
+      {/* Override fields for Cards 2+ */}
+      {!isPrimary && (
+        <div className="space-y-3">
+          <p className="font-body text-xs font-medium text-brand-text-secondary">Card Details</p>
+          <input
+            type="text"
+            value={card.override_display_name ?? ''}
+            onChange={(e) => onOverrideChange('override_display_name', e.target.value)}
+            onBlur={() => onOverrideBlur('override_display_name')}
+            className={inputCls}
+            placeholder="Display Name"
+          />
+          <input
+            type="text"
+            value={card.override_job_title ?? ''}
+            onChange={(e) => onOverrideChange('override_job_title', e.target.value)}
+            onBlur={() => onOverrideBlur('override_job_title')}
+            className={inputCls}
+            placeholder="Job Title"
+          />
+          <textarea
+            value={card.override_bio ?? ''}
+            onChange={(e) => onOverrideChange('override_bio', e.target.value)}
+            onBlur={() => onOverrideBlur('override_bio')}
+            rows={2}
+            className={inputCls + ' resize-none'}
+            placeholder="Bio"
+          />
+          <input
+            type="email"
+            value={card.override_email ?? ''}
+            onChange={(e) => onOverrideChange('override_email', e.target.value)}
+            onBlur={() => onOverrideBlur('override_email')}
+            className={inputCls}
+            placeholder="Email"
+          />
+          <input
+            type="tel"
+            value={card.override_phone ?? ''}
+            onChange={(e) => onOverrideChange('override_phone', e.target.value)}
+            onBlur={() => onOverrideBlur('override_phone')}
+            className={inputCls}
+            placeholder="Phone"
+          />
+          <input
+            type="text"
+            value={card.override_company_name ?? ''}
+            onChange={(e) => onOverrideChange('override_company_name', e.target.value)}
+            onBlur={() => onOverrideBlur('override_company_name')}
+            className={inputCls}
+            placeholder="Company"
+          />
+          <input
+            type="text"
+            value={card.override_address ?? ''}
+            onChange={(e) => onOverrideChange('override_address', e.target.value)}
+            onBlur={() => onOverrideBlur('override_address')}
+            className={inputCls}
+            placeholder="Address"
+          />
+        </div>
+      )}
 
       {/* Field toggles */}
       <div className="space-y-2.5">
@@ -502,10 +599,10 @@ function CardSettings({
         <FieldToggle icon={UserIcon} label="Avatar" checked={card.show_avatar} onChange={() => onToggleField('show_avatar')} />
         <FieldToggle icon={Briefcase} label="Job Title" checked={card.show_job_title} onChange={() => onToggleField('show_job_title')} />
         <FieldToggle icon={FileText} label="Bio" checked={card.show_bio} onChange={() => onToggleField('show_bio')} />
-        <FieldToggle icon={Mail} label="Email" checked={card.show_email} onChange={() => onToggleField('show_email')} disabled={!user?.email} hint={!user?.email ? 'No email' : undefined} />
-        <FieldToggle icon={Phone} label="Phone" checked={card.show_phone} onChange={() => onToggleField('show_phone')} disabled={!page?.phone} hint={!page?.phone ? 'Add in profile' : undefined} />
-        <FieldToggle icon={Building2} label="Company" checked={card.show_company} onChange={() => onToggleField('show_company')} disabled={!page?.company_name} hint={!page?.company_name ? 'Add in profile' : undefined} />
-        <FieldToggle icon={MapPin} label="Address" checked={card.show_address} onChange={() => onToggleField('show_address')} disabled={!page?.address} hint={!page?.address ? 'Add in profile' : undefined} />
+        <FieldToggle icon={Mail} label="Email" checked={card.show_email} onChange={() => onToggleField('show_email')} />
+        <FieldToggle icon={Phone} label="Phone" checked={card.show_phone} onChange={() => onToggleField('show_phone')} />
+        <FieldToggle icon={Building2} label="Company" checked={card.show_company} onChange={() => onToggleField('show_company')} />
+        <FieldToggle icon={MapPin} label="Address" checked={card.show_address} onChange={() => onToggleField('show_address')} />
         <FieldToggle icon={Users} label="Social Icons" checked={card.show_socials} onChange={() => onToggleField('show_socials')} />
       </div>
 

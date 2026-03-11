@@ -35,7 +35,15 @@ export function EmbedRenderer({ block, pageId }: BlockRendererProps) {
   if (!data.embed_url) return null;
 
   const resolved = resolveProvider(data);
-  if (!resolved) return null;
+  if (!resolved) {
+    return (
+      <div className="scroll-reveal my-6 rounded-lg border border-brand-border bg-brand-surface-alt p-4 text-center">
+        <p className="text-sm text-brand-text-muted">
+          This embed type is not supported.
+        </p>
+      </div>
+    );
+  }
 
   const { provider, src } = resolved;
   const isYouTube = provider.id === 'youtube';

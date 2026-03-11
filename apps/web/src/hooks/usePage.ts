@@ -37,6 +37,8 @@ export function usePage() {
     theme?: Theme;
     show_branding?: boolean;
     section_order?: string[];
+    job_title?: string;
+    profession?: string;
     phone?: string;
     company_name?: string;
     address?: string;
@@ -60,7 +62,7 @@ export function usePage() {
 
     const current = usePageStore.getState().page;
     const directFields = ['display_name', 'bio', 'about_me', 'about_me_expanded', 'section_order',
-      'phone', 'company_name', 'address',
+      'job_title', 'profession', 'phone', 'company_name', 'address',
       'show_email_page', 'show_email_card', 'show_phone_page', 'show_phone_card',
       'show_company_page', 'show_company_card', 'show_address_page', 'show_address_card'] as const;
     if (directFields.some((f) => (updates as Record<string, unknown>)[f] !== undefined)) {

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
 import type { ImageGalleryData } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
+import { useSwipe } from '../../../hooks/useSwipe';
 
 function Lightbox({ src, alt, caption, onClose }: { src: string; alt: string; caption?: string; onClose: () => void }) {
   const [visible, setVisible] = useState(false);
@@ -75,8 +76,13 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<{ src: string; alt: string; caption?: string } | null>(null);
+  const [showHint, setShowHint] = useState(true);
   const trackedRef = useRef(false);
-  const touchStartRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowHint(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   function handleView() {
     if (trackedRef.current || !pageId) return;
@@ -94,26 +100,15 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
     }, 200);
   }, [transitioning]);
 
-  function prev() {
+  const prev = useCallback(() => {
     goTo((currentIndex - 1 + data.images.length) % data.images.length);
-  }
+  }, [currentIndex, data.images.length, goTo]);
 
-  function next() {
+  const next = useCallback(() => {
     goTo((currentIndex + 1) % data.images.length);
-  }
+  }, [currentIndex, data.images.length, goTo]);
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartRef.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartRef.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartRef.current;
-    if (Math.abs(delta) > 40) {
-      delta < 0 ? next() : prev();
-    }
-    touchStartRef.current = null;
-  }
+  const swipeHandlers = useSwipe({ onSwipeLeft: next, onSwipeRight: prev });
 
   function openLightbox(r2_key: string, alt: string, caption?: string) {
     handleView();
@@ -152,8 +147,7 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
       <>
         <div
           className="scroll-reveal my-6 rounded-xl overflow-hidden relative"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          {...swipeHandlers}
         >
           <div
             className="cursor-pointer"
@@ -208,6 +202,12 @@ export function ImageGalleryRenderer({ block, pageId }: BlockRendererProps) {
             </p>
           )}
         </div>
+        {showHint && data.images.length > 1 && (
+          <p className="text-xs text-brand-text-muted text-center mt-2 md:hidden transition-opacity duration-500"
+            style={{ opacity: showHint ? 1 : 0 }}>
+            Swipe to navigate
+          </p>
+        )}
         {lightboxSrc && <Lightbox {...lightboxSrc} onClose={() => setLightboxSrc(null)} />}
       </>
     );

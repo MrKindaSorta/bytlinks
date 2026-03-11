@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Camera, ChevronDown, Mail, Phone, Building2, MapPin } from 'lucide-react';
+import { Camera, ChevronDown, Mail, Phone, Building2, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 import { usePage } from '../../hooks/usePage';
 import { useAuth } from '../../hooks/useAuth';
 import { useUpload } from '../../hooks/useUpload';
@@ -46,19 +46,17 @@ export function ProfileEditor() {
   );
 
   // Contact fields
+  const [jobTitle, setJobTitle] = useState(page?.job_title ?? '');
+  const [profession, setProfession] = useState(page?.profession ?? '');
   const [phone, setPhone] = useState(page?.phone ?? '');
   const [companyName, setCompanyName] = useState(page?.company_name ?? '');
   const [address, setAddress] = useState(page?.address ?? '');
 
-  // Visibility toggles
+  // Visibility toggles (page only — card visibility is controlled per-card in Business Card settings)
   const [showEmailPage, setShowEmailPage] = useState(page?.show_email_page ?? false);
-  const [showEmailCard, setShowEmailCard] = useState(page?.show_email_card ?? true);
   const [showPhonePage, setShowPhonePage] = useState(page?.show_phone_page ?? false);
-  const [showPhoneCard, setShowPhoneCard] = useState(page?.show_phone_card ?? true);
   const [showCompanyPage, setShowCompanyPage] = useState(page?.show_company_page ?? false);
-  const [showCompanyCard, setShowCompanyCard] = useState(page?.show_company_card ?? true);
   const [showAddressPage, setShowAddressPage] = useState(page?.show_address_page ?? false);
-  const [showAddressCard, setShowAddressCard] = useState(page?.show_address_card ?? true);
 
   const debouncedSave = useDebounce(async (field: string, value: string) => {
     try {
@@ -282,13 +280,51 @@ export function ProfileEditor() {
         >
           <div className="px-3 py-3 border-t border-brand-border space-y-4">
             <p className="font-body text-xs text-brand-text-muted">
-              Add your contact details. Toggle visibility for your public page and business card separately.
+              Your contact details. These sync to your primary business card. Toggle page visibility with the switch.
             </p>
 
-            {/* Column headers */}
-            <div className="flex items-center justify-end gap-4 pr-1">
-              <span className="font-body text-[11px] font-medium text-brand-text-muted uppercase tracking-wide">Page</span>
-              <span className="font-body text-[11px] font-medium text-brand-text-muted uppercase tracking-wide">Card</span>
+            {/* Job Title */}
+            <div className="space-y-1.5">
+              <label htmlFor="contact-job-title" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                <Briefcase className="w-3.5 h-3.5 text-brand-text-muted" />
+                Job Title
+              </label>
+              <input
+                id="contact-job-title"
+                type="text"
+                value={jobTitle}
+                onChange={(e) => {
+                  setJobTitle(e.target.value);
+                  debouncedSave('job_title', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="Product Designer"
+              />
+            </div>
+
+            {/* Profession */}
+            <div className="space-y-1.5">
+              <label htmlFor="contact-profession" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                <GraduationCap className="w-3.5 h-3.5 text-brand-text-muted" />
+                Profession
+              </label>
+              <input
+                id="contact-profession"
+                type="text"
+                value={profession}
+                onChange={(e) => {
+                  setProfession(e.target.value);
+                  debouncedSave('profession', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="Designer, Developer, Photographer..."
+              />
             </div>
 
             {/* Email (read-only, uses account email) */}
@@ -298,18 +334,11 @@ export function ProfileEditor() {
                   <Mail className="w-3.5 h-3.5 text-brand-text-muted" />
                   Email
                 </label>
-                <div className="flex items-center gap-3">
-                  <Toggle
-                    checked={showEmailPage}
-                    onChange={(v) => handleToggle('show_email_page', v, setShowEmailPage)}
-                    label=""
-                  />
-                  <Toggle
-                    checked={showEmailCard}
-                    onChange={(v) => handleToggle('show_email_card', v, setShowEmailCard)}
-                    label=""
-                  />
-                </div>
+                <Toggle
+                  checked={showEmailPage}
+                  onChange={(v) => handleToggle('show_email_page', v, setShowEmailPage)}
+                  label="Show on page"
+                />
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-brand-border bg-brand-surface-alt">
                 <span className="font-body text-sm text-brand-text-muted">{user?.email}</span>
@@ -324,18 +353,11 @@ export function ProfileEditor() {
                   <Phone className="w-3.5 h-3.5 text-brand-text-muted" />
                   Phone
                 </label>
-                <div className="flex items-center gap-3">
-                  <Toggle
-                    checked={showPhonePage}
-                    onChange={(v) => handleToggle('show_phone_page', v, setShowPhonePage)}
-                    label=""
-                  />
-                  <Toggle
-                    checked={showPhoneCard}
-                    onChange={(v) => handleToggle('show_phone_card', v, setShowPhoneCard)}
-                    label=""
-                  />
-                </div>
+                <Toggle
+                  checked={showPhonePage}
+                  onChange={(v) => handleToggle('show_phone_page', v, setShowPhonePage)}
+                  label="Show on page"
+                />
               </div>
               <input
                 id="contact-phone"
@@ -360,18 +382,11 @@ export function ProfileEditor() {
                   <Building2 className="w-3.5 h-3.5 text-brand-text-muted" />
                   Company
                 </label>
-                <div className="flex items-center gap-3">
-                  <Toggle
-                    checked={showCompanyPage}
-                    onChange={(v) => handleToggle('show_company_page', v, setShowCompanyPage)}
-                    label=""
-                  />
-                  <Toggle
-                    checked={showCompanyCard}
-                    onChange={(v) => handleToggle('show_company_card', v, setShowCompanyCard)}
-                    label=""
-                  />
-                </div>
+                <Toggle
+                  checked={showCompanyPage}
+                  onChange={(v) => handleToggle('show_company_page', v, setShowCompanyPage)}
+                  label="Show on page"
+                />
               </div>
               <input
                 id="contact-company"
@@ -396,18 +411,11 @@ export function ProfileEditor() {
                   <MapPin className="w-3.5 h-3.5 text-brand-text-muted" />
                   Address
                 </label>
-                <div className="flex items-center gap-3">
-                  <Toggle
-                    checked={showAddressPage}
-                    onChange={(v) => handleToggle('show_address_page', v, setShowAddressPage)}
-                    label=""
-                  />
-                  <Toggle
-                    checked={showAddressCard}
-                    onChange={(v) => handleToggle('show_address_card', v, setShowAddressCard)}
-                    label=""
-                  />
-                </div>
+                <Toggle
+                  checked={showAddressPage}
+                  onChange={(v) => handleToggle('show_address_page', v, setShowAddressPage)}
+                  label="Show on page"
+                />
               </div>
               <input
                 id="contact-address"

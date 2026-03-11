@@ -371,6 +371,7 @@ rolodexRoutes.put('/auto-accept', async (c) => {
   const user = c.get('user');
   const { enabled } = await c.req.json<{ enabled: boolean }>();
 
+  // updated_at is maintained by bio_pages_updated_at trigger
   await c.env.DB.prepare(
     'UPDATE bio_pages SET auto_accept_cards = ? WHERE user_id = ?'
   ).bind(enabled ? 1 : 0, user.id).run();
