@@ -2,13 +2,12 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import {
   UserRoundPlus, Mail, Phone, Building2, MapPin, QrCode, Share2,
   Plus, Trash2, ChevronLeft, ChevronRight, User, Briefcase, FileText,
-  Users, Eye, EyeOff, Radio,
+  Users, Radio,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { usePage } from '../../hooks/usePage';
 import { useAuth } from '../../hooks/useAuth';
 import type { BusinessCard } from '@bytlinks/shared';
-import { CardDots } from '../page/CardDots';
 
 type CardField = 'show_avatar' | 'show_job_title' | 'show_bio' | 'show_email'
   | 'show_phone' | 'show_company' | 'show_address' | 'show_socials';
