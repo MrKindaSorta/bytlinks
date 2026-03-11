@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Mail, Phone, Building2, MapPin, UserRoundPlus, ExternalLink,
   Check, Copy, CreditCard,
 } from 'lucide-react';
-import QRCode from 'qrcode';
 import type { Theme, SocialLink } from '@bytlinks/shared';
 import { PageShell } from '../components/page/PageShell';
 import { PageSocials } from '../components/page/PageSocials';
@@ -107,30 +106,8 @@ function CardContent({
   socialLinks: SocialLink[];
   vcardUrl: string;
 }) {
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const displayName = page.display_name || page.username;
   const avatarUrl = page.avatar_r2_key ? `/api/public/avatar/${page.avatar_r2_key}` : null;
-
-  const cardUrl = window.location.href;
-
-  const renderQr = useCallback(async () => {
-    const canvas = qrCanvasRef.current;
-    if (!canvas) return;
-    try {
-      await QRCode.toCanvas(canvas, cardUrl, {
-        width: 120,
-        margin: 1,
-        color: { dark: '#1a1a2e', light: '#ffffff' },
-        errorCorrectionLevel: 'M',
-      });
-    } catch {
-      // silent
-    }
-  }, [cardUrl]);
-
-  useEffect(() => {
-    renderQr();
-  }, [renderQr]);
 
   const contactItems: { icon: typeof Mail; label: string; value: string; href?: string }[] = [];
   if (card.show_email && page.email) {
@@ -276,22 +253,6 @@ function CardContent({
           ))}
         </div>
       )}
-
-      {/* QR Code */}
-      <div
-        className="mt-6 flex justify-center opacity-0 animate-[cardFadeUp_0.6s_ease_forwards]"
-        style={{ animationDelay: '380ms' }}
-      >
-        <div className="rounded-xl bg-white p-2.5 shadow-sm">
-          <canvas ref={qrCanvasRef} width={120} height={120} className="block" role="img" aria-label="QR code for this card" />
-        </div>
-      </div>
-      <p
-        className="text-[10px] text-center mt-1.5 opacity-30"
-        style={{ color: 'var(--page-text)' }}
-      >
-        Scan to view card
-      </p>
 
       {/* Action buttons */}
       <div
