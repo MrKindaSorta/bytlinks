@@ -26,18 +26,12 @@ const PRO_FEATURES = [
   'Everything in Free',
   'Full analytics dashboard',
   'Remove "Powered by BytLinks" badge',
-  'Custom domain support',
   'Advanced color customization',
   'Priority support',
 ];
 
-const BUSINESS_FEATURES = [
-  'Everything in Pro',
-  'Team management',
-  'Multiple pages per account',
-  'Dedicated account manager',
-  'Custom integrations',
-  'SLA & uptime guarantee',
+const PRO_COMING_SOON = [
+  'Custom domain support',
 ];
 
 export function PricingSection() {
@@ -66,7 +60,7 @@ export function PricingSection() {
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 max-w-3xl mx-auto"
           variants={reduced ? undefined : container}
           initial="hidden"
           whileInView="visible"
@@ -125,6 +119,17 @@ export function PricingSection() {
                   <span className="font-body text-sm text-brand-text-secondary">{f}</span>
                 </li>
               ))}
+              {PRO_COMING_SOON.map((f) => (
+                <li key={f} className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-brand-text-muted/40 mt-0.5 shrink-0" />
+                  <span className="font-body text-sm text-brand-text-muted">
+                    {f}
+                    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand-accent/70">
+                      Coming soon
+                    </span>
+                  </span>
+                </li>
+              ))}
             </ul>
             <Link
               to="/signup?plan=pro"
@@ -136,33 +141,6 @@ export function PricingSection() {
             </Link>
           </motion.div>
 
-          {/* Business tier */}
-          <motion.div
-            variants={reduced ? undefined : cardVariant}
-            className="p-6 sm:p-8 rounded-xl border border-brand-border bg-brand-bg"
-          >
-            <div className="mb-1">
-              <span className="font-body text-xs font-semibold uppercase tracking-[0.12em] text-brand-text-muted">Business plan</span>
-            </div>
-            <div className="font-display text-4xl font-900 text-brand-text tracking-tight mb-1">Custom</div>
-            <div className="font-body text-sm text-brand-text-muted mb-6">tailored to your team</div>
-            <ul className="space-y-2.5 mb-8">
-              {BUSINESS_FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2.5">
-                  <Check className="w-4 h-4 text-brand-accent mt-0.5 shrink-0" />
-                  <span className="font-body text-sm text-brand-text-secondary">{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href="mailto:hello@bytlinks.com"
-              className="block w-full text-center font-body text-sm font-semibold py-3 rounded-lg
-                         border border-brand-border text-brand-text
-                         transition-all duration-150 hover:border-brand-accent/50 hover:bg-brand-surface"
-            >
-              Talk to us
-            </a>
-          </motion.div>
         </motion.div>
       </div>
     </section>
