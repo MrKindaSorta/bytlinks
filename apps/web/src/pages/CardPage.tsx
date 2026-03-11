@@ -357,6 +357,24 @@ export default function CardPage() {
     return () => { document.title = 'BytLinks'; };
   }, [data, username]);
 
+  const total = data?.cards.length ?? 0;
+
+  const goTo = useCallback(
+    (index: number) => setActiveIndex(Math.max(0, Math.min(total - 1, index))),
+    [total],
+  );
+
+  // Keyboard nav
+  useEffect(() => {
+    if (!total) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowRight') setActiveIndex((i) => Math.min(total - 1, i + 1));
+      if (e.key === 'ArrowLeft') setActiveIndex((i) => Math.max(0, i - 1));
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [total]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-brand-bg">
@@ -378,15 +396,9 @@ export default function CardPage() {
   }
 
   const { page, cards, socialLinks } = data;
-  const total = cards.length;
   const cardPageUrl = `https://www.bytlinks.com/${username}/card`;
   const profileUrl = `https://www.bytlinks.com/${username}`;
   const vcardUrl = `/api/public/${username}/vcard`;
-
-  const goTo = useCallback(
-    (index: number) => setActiveIndex(Math.max(0, Math.min(total - 1, index))),
-    [total],
-  );
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -401,16 +413,6 @@ export default function CardPage() {
     if (dx < 0) setActiveIndex((i) => Math.min(total - 1, i + 1));
     else setActiveIndex((i) => Math.max(0, i - 1));
   }
-
-  // Keyboard nav
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'ArrowRight') setActiveIndex((i) => Math.min(total - 1, i + 1));
-      if (e.key === 'ArrowLeft') setActiveIndex((i) => Math.max(0, i - 1));
-    }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [total]);
 
   const activeCard = cards[activeIndex];
 
