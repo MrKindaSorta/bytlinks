@@ -9,7 +9,7 @@ import { usePage } from '../../hooks/usePage';
 import { useAuth } from '../../hooks/useAuth';
 import type { BusinessCard } from '@bytlinks/shared';
 
-type CardField = 'show_avatar' | 'show_job_title' | 'show_bio' | 'show_email'
+type CardField = 'show_avatar' | 'show_job_title' | 'show_bio' | 'show_email' | 'show_secondary_email'
   | 'show_phone' | 'show_company' | 'show_address' | 'show_socials';
 
 export function BusinessCardTab() {
@@ -260,10 +260,16 @@ export function BusinessCardTab() {
   const resolvedPhone = rv(activeCard?.override_phone, page?.phone);
   const resolvedAddress = rv(activeCard?.override_address, page?.address);
   const resolvedEmail = rv(activeCard?.override_email, user?.email);
+  const resolvedEmailLabel = rv(activeCard?.override_email_label, page?.email_label) || 'Email';
+  const resolvedSecondaryEmail = rv(activeCard?.override_secondary_email, page?.secondary_email);
+  const resolvedSecondaryEmailLabel = rv(activeCard?.override_secondary_email_label, page?.secondary_email_label) || 'Email 2';
 
   const contactItems: { icon: typeof Mail; label: string; value: string }[] = [];
   if (activeCard?.show_email && resolvedEmail) {
-    contactItems.push({ icon: Mail, label: 'Email', value: resolvedEmail });
+    contactItems.push({ icon: Mail, label: resolvedEmailLabel, value: resolvedEmail });
+  }
+  if (activeCard?.show_secondary_email && resolvedSecondaryEmail) {
+    contactItems.push({ icon: Mail, label: resolvedSecondaryEmailLabel, value: resolvedSecondaryEmail });
   }
   if (activeCard?.show_phone && resolvedPhone) {
     contactItems.push({ icon: Phone, label: 'Phone', value: resolvedPhone });
@@ -516,6 +522,9 @@ export function BusinessCardTab() {
                       ['override_job_title', 'Job Title', 'text'] as const,
                       ['override_bio', 'Bio', 'text'] as const,
                       ['override_email', 'Email', 'email'] as const,
+                      ['override_email_label', 'Email Label (e.g. Work)', 'text'] as const,
+                      ['override_secondary_email', 'Secondary Email', 'email'] as const,
+                      ['override_secondary_email_label', 'Secondary Email Label', 'text'] as const,
                       ['override_phone', 'Phone', 'tel'] as const,
                       ['override_company_name', 'Company', 'text'] as const,
                       ['override_address', 'Address', 'text'] as const,
@@ -547,7 +556,8 @@ export function BusinessCardTab() {
                   <FieldToggle icon={User} label="Avatar" checked={activeCard.show_avatar} onChange={() => toggleField('show_avatar')} />
                   <FieldToggle icon={Briefcase} label="Job Title" checked={activeCard.show_job_title} onChange={() => toggleField('show_job_title')} />
                   <FieldToggle icon={FileText} label="Bio" checked={activeCard.show_bio} onChange={() => toggleField('show_bio')} />
-                  <FieldToggle icon={Mail} label="Email" checked={activeCard.show_email} onChange={() => toggleField('show_email')} />
+                  <FieldToggle icon={Mail} label={resolvedEmailLabel} checked={activeCard.show_email} onChange={() => toggleField('show_email')} />
+                  <FieldToggle icon={Mail} label={resolvedSecondaryEmailLabel} checked={activeCard.show_secondary_email} onChange={() => toggleField('show_secondary_email')} />
                   <FieldToggle icon={Phone} label="Phone" checked={activeCard.show_phone} onChange={() => toggleField('show_phone')} />
                   <FieldToggle icon={Building2} label="Company" checked={activeCard.show_company} onChange={() => toggleField('show_company')} />
                   <FieldToggle icon={MapPin} label="Address" checked={activeCard.show_address} onChange={() => toggleField('show_address')} />

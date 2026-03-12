@@ -123,8 +123,12 @@ pageRoutes.put('/me', async (c) => {
     phone?: string;
     company_name?: string;
     address?: string;
+    email_label?: string;
+    secondary_email?: string;
+    secondary_email_label?: string;
     show_email_page?: boolean;
     show_email_card?: boolean;
+    show_secondary_email_page?: boolean;
     show_phone_page?: boolean;
     show_phone_card?: boolean;
     show_company_page?: boolean;
@@ -193,8 +197,20 @@ pageRoutes.put('/me', async (c) => {
       updates.push('address = ?');
       values.push(body.address);
     }
+    if (body.email_label !== undefined) {
+      updates.push('email_label = ?');
+      values.push(body.email_label || null);
+    }
+    if (body.secondary_email !== undefined) {
+      updates.push('secondary_email = ?');
+      values.push(body.secondary_email || null);
+    }
+    if (body.secondary_email_label !== undefined) {
+      updates.push('secondary_email_label = ?');
+      values.push(body.secondary_email_label || null);
+    }
     for (const toggle of [
-      'show_email_page', 'show_email_card',
+      'show_email_page', 'show_email_card', 'show_secondary_email_page',
       'show_phone_page', 'show_phone_card',
       'show_company_page', 'show_company_card',
       'show_address_page', 'show_address_card',
@@ -317,7 +333,7 @@ pageRoutes.post('/me/cards', async (c) => {
 
     // Cards 2+ get a snapshot of current profile values as their initial overrides
     const pageData = await c.env.DB.prepare(
-      'SELECT display_name, bio, job_title, profession, phone, company_name, address FROM bio_pages WHERE id = ?'
+      'SELECT display_name, bio, job_title, profession, phone, company_name, address, email_label, secondary_email, secondary_email_label FROM bio_pages WHERE id = ?'
     ).bind(page.id).first<Record<string, string | null>>();
 
     const ownerRow = await c.env.DB.prepare(
@@ -325,9 +341,9 @@ pageRoutes.post('/me/cards', async (c) => {
     ).bind(user.id).first<{ email: string }>();
 
     await c.env.DB.prepare(
-      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_phone, show_company, show_address, show_socials, access_token,
-       override_display_name, override_bio, override_job_title, override_profession, override_phone, override_company_name, override_address, override_email)
-       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 1, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO business_cards (id, page_id, label, order_num, show_avatar, show_job_title, show_bio, show_email, show_secondary_email, show_phone, show_company, show_address, show_socials, access_token,
+       override_display_name, override_bio, override_job_title, override_profession, override_phone, override_company_name, override_address, override_email, override_email_label, override_secondary_email, override_secondary_email_label)
+       VALUES (?, ?, ?, ?, 1, 1, 0, 1, 0, 1, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id, page.id, `Card ${orderNum + 1}`, orderNum, token,
       pageData?.display_name ?? null,
@@ -338,6 +354,9 @@ pageRoutes.post('/me/cards', async (c) => {
       pageData?.company_name ?? null,
       pageData?.address ?? null,
       ownerRow?.email ?? null,
+      pageData?.email_label ?? null,
+      pageData?.secondary_email ?? null,
+      pageData?.secondary_email_label ?? null,
     ).run();
 
     const card = await c.env.DB.prepare(
@@ -366,6 +385,7 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
     show_job_title?: boolean;
     show_bio?: boolean;
     show_email?: boolean;
+    show_secondary_email?: boolean;
     show_phone?: boolean;
     show_company?: boolean;
     show_address?: boolean;
@@ -378,6 +398,9 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
     override_company_name?: string | null;
     override_address?: string | null;
     override_email?: string | null;
+    override_email_label?: string | null;
+    override_secondary_email?: string | null;
+    override_secondary_email_label?: string | null;
   }>();
 
   try {
@@ -412,7 +435,7 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
       values.push(body.label);
     }
     for (const toggle of [
-      'show_avatar', 'show_job_title', 'show_bio', 'show_email',
+      'show_avatar', 'show_job_title', 'show_bio', 'show_email', 'show_secondary_email',
       'show_phone', 'show_company', 'show_address', 'show_socials',
     ] as const) {
       if (body[toggle] !== undefined) {
@@ -425,7 +448,8 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
     const overrideFields = [
       'override_display_name', 'override_bio', 'override_job_title',
       'override_profession', 'override_phone', 'override_company_name',
-      'override_address', 'override_email',
+      'override_address', 'override_email', 'override_email_label',
+      'override_secondary_email', 'override_secondary_email_label',
     ] as const;
 
     // Map override field names to bio_pages column names for Card 1 write-through
@@ -437,6 +461,9 @@ pageRoutes.put('/me/cards/:cardId', async (c) => {
       override_phone: 'phone',
       override_company_name: 'company_name',
       override_address: 'address',
+      override_email_label: 'email_label',
+      override_secondary_email: 'secondary_email',
+      override_secondary_email_label: 'secondary_email_label',
     };
 
     if (card.order_num === 0) {
@@ -582,6 +609,7 @@ function toBooleanCard(row: Record<string, unknown>) {
     show_job_title: !!row.show_job_title,
     show_bio: !!row.show_bio,
     show_email: !!row.show_email,
+    show_secondary_email: !!row.show_secondary_email,
     show_phone: !!row.show_phone,
     show_company: !!row.show_company,
     show_address: !!row.show_address,

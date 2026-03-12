@@ -1,20 +1,26 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 interface OverviewData {
   total_users: number;
   new_users_30d: number;
+  prev_users_30d: number;
   total_pages: number;
   published_pages: number;
   total_links: number;
   total_blocks: number;
   total_views: number;
   recent_views_30d: number;
+  prev_views_30d: number;
   total_clicks: number;
+  recent_clicks_30d: number;
+  prev_clicks_30d: number;
   total_newsletter_signups: number;
   pending_verifications: number;
+  signup_to_publish_rate: number;
+  platform_ctr: number;
 }
 
-interface GrowthDay { day: string; count: number }
+interface GrowthDay { day: string; count: number; cumulative: number }
 interface ViewDay { day: string; views: number; clicks: number }
 interface TopPage { username: string; display_name: string | null; email: string; views: number }
 interface ReferrerItem { source: string; count: number }
@@ -38,9 +44,7 @@ interface ActivityFeed {
 interface VerificationRequest {
   id: string;
   user_id: string;
-  full_name: string;
   reason: string;
-  links: string;
   created_at: number;
   status: string;
   email: string;
@@ -67,78 +71,228 @@ interface Pagination {
   pages: number;
 }
 
-export interface AdminData {
+interface FunnelData {
+  signed_up: number;
+  created_page: number;
+  published: number;
+  added_links: number;
+  added_blocks: number;
+  got_views: number;
+  got_clicks: number;
+}
+
+interface EngagementData {
+  active_pages: number;
+  total_interactions: number;
+  interaction_breakdown: { event_type: string; count: number }[];
+  stale_pages: number;
+  recently_updated: number;
+}
+
+interface HeatmapCell { dow: number; hour: number; count: number }
+
+interface GrowthRatePeriod {
+  current: number;
+  previous: number;
+  change_pct: number;
+}
+
+interface GrowthRatesData {
+  weekly: { users: GrowthRatePeriod; views: GrowthRatePeriod; clicks: GrowthRatePeriod };
+  monthly: { users: GrowthRatePeriod; views: GrowthRatePeriod; clicks: GrowthRatePeriod };
+}
+
+export interface AdminOverviewTab {
   overview: OverviewData | null;
   userGrowth: GrowthDay[];
   platformViews: ViewDay[];
+  activityFeed: ActivityFeed | null;
+  growthRates: GrowthRatesData | null;
+}
+
+export interface AdminEngagementTab {
+  funnel: FunnelData | null;
+  engagement: EngagementData | null;
+  heatmap: HeatmapCell[];
   topPages: TopPage[];
+}
+
+export interface AdminAudienceTab {
   referrers: ReferrerItem[];
   countries: CountryItem[];
   devices: DevicesData | null;
+}
+
+export interface AdminUsersTab {
   contentStats: ContentStats | null;
-  activityFeed: ActivityFeed | null;
+}
+
+export interface AdminQueueTab {
   verificationQueue: VerificationRequest[];
 }
 
-export type { UserRow, Pagination, VerificationRequest };
+export type { UserRow, Pagination, VerificationRequest, GrowthDay, ViewDay, TopPage, ReferrerItem, CountryItem, DevicesData, ContentStats, ActivityFeed, FunnelData, EngagementData, HeatmapCell, GrowthRatesData, OverviewData };
 
 const adminFetch = (path: string) =>
   fetch(`/api/bytadmin${path}`, { credentials: 'include' }).then((r) => r.json());
 
-export function useAdminAnalytics() {
-  const [data, setData] = useState<AdminData>({
-    overview: null,
-    userGrowth: [],
-    platformViews: [],
-    topPages: [],
-    referrers: [],
-    countries: [],
-    devices: null,
-    contentStats: null,
-    activityFeed: null,
-    verificationQueue: [],
+export type AdminTab = 'overview' | 'engagement' | 'audience' | 'users' | 'queue';
+
+export function useAdminAnalytics(days: number = 30) {
+  const [overviewTab, setOverviewTab] = useState<AdminOverviewTab>({
+    overview: null, userGrowth: [], platformViews: [], activityFeed: null, growthRates: null,
   });
-  const [loading, setLoading] = useState(true);
+  const [engagementTab, setEngagementTab] = useState<AdminEngagementTab>({
+    funnel: null, engagement: null, heatmap: [], topPages: [],
+  });
+  const [audienceTab, setAudienceTab] = useState<AdminAudienceTab>({
+    referrers: [], countries: [], devices: null,
+  });
+  const [usersTab, setUsersTab] = useState<AdminUsersTab>({ contentStats: null });
+  const [queueTab, setQueueTab] = useState<AdminQueueTab>({ verificationQueue: [] });
 
-  const fetchAll = useCallback(async () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Track which tabs have been fetched for the current days value
+  const fetchedTabs = useRef<Set<string>>(new Set());
+
+  // Reset fetched tabs when days changes
+  useEffect(() => {
+    fetchedTabs.current.clear();
+  }, [days]);
+
+  const fetchOverview = useCallback(async (force = false) => {
+    if (!force && fetchedTabs.current.has('overview')) return;
+    setLoading(true);
+    setError(null);
     try {
-      const [overview, growth, views, pages, referrers, countries, devices, content, feed, queue] = await Promise.all([
+      const [overview, growth, views, feed, rates] = await Promise.all([
         adminFetch('/overview'),
-        adminFetch('/user-growth?days=90'),
-        adminFetch('/platform-views'),
-        adminFetch('/top-pages?limit=20'),
-        adminFetch('/referrers'),
-        adminFetch('/countries'),
-        adminFetch('/devices'),
-        adminFetch('/content-stats'),
+        adminFetch(`/user-growth?days=${days}`),
+        adminFetch(`/platform-views?days=${days}`),
         adminFetch('/activity-feed'),
-        adminFetch('/verification-queue'),
+        adminFetch('/growth-rates'),
       ]);
-
-      setData({
+      setOverviewTab({
         overview: overview.success ? overview.data : null,
         userGrowth: growth.success ? growth.data : [],
         platformViews: views.success ? views.data : [],
+        activityFeed: feed.success ? feed.data : null,
+        growthRates: rates.success ? rates.data : null,
+      });
+      fetchedTabs.current.add('overview');
+    } catch {
+      setError('Failed to load overview data');
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  const fetchEngagement = useCallback(async (force = false) => {
+    if (!force && fetchedTabs.current.has('engagement')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [funnel, engagement, heatmap, pages] = await Promise.all([
+        adminFetch('/activation-funnel'),
+        adminFetch(`/engagement-metrics?days=${days}`),
+        adminFetch(`/hourly-heatmap?days=${days}`),
+        adminFetch(`/top-pages?limit=20&days=${days}`),
+      ]);
+      setEngagementTab({
+        funnel: funnel.success ? funnel.data : null,
+        engagement: engagement.success ? engagement.data : null,
+        heatmap: heatmap.success ? heatmap.data : [],
         topPages: pages.success ? pages.data : [],
+      });
+      fetchedTabs.current.add('engagement');
+    } catch {
+      setError('Failed to load engagement data');
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  const fetchAudience = useCallback(async (force = false) => {
+    if (!force && fetchedTabs.current.has('audience')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [referrers, countries, devices] = await Promise.all([
+        adminFetch(`/referrers?days=${days}`),
+        adminFetch(`/countries?days=${days}`),
+        adminFetch(`/devices?days=${days}`),
+      ]);
+      setAudienceTab({
         referrers: referrers.success ? referrers.data : [],
         countries: countries.success ? countries.data : [],
         devices: devices.success ? devices.data : null,
-        contentStats: content.success ? content.data : null,
-        activityFeed: feed.success ? feed.data : null,
-        verificationQueue: queue.success ? queue.data : [],
       });
+      fetchedTabs.current.add('audience');
     } catch {
-      // Silently fail
+      setError('Failed to load audience data');
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  const fetchUsers = useCallback(async (force = false) => {
+    if (!force && fetchedTabs.current.has('users')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const content = await adminFetch('/content-stats');
+      setUsersTab({ contentStats: content.success ? content.data : null });
+      fetchedTabs.current.add('users');
+    } catch {
+      setError('Failed to load users data');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  const fetchQueue = useCallback(async (force = false) => {
+    if (!force && fetchedTabs.current.has('queue')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const queue = await adminFetch('/verification-queue');
+      setQueueTab({ verificationQueue: queue.success ? queue.data : [] });
+      fetchedTabs.current.add('queue');
+    } catch {
+      setError('Failed to load queue data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  return { data, loading, refetch: fetchAll };
+  const fetchTab = useCallback(async (tab: AdminTab, force = false) => {
+    switch (tab) {
+      case 'overview': return fetchOverview(force);
+      case 'engagement': return fetchEngagement(force);
+      case 'audience': return fetchAudience(force);
+      case 'users': return fetchUsers(force);
+      case 'queue': return fetchQueue(force);
+    }
+  }, [fetchOverview, fetchEngagement, fetchAudience, fetchUsers, fetchQueue]);
+
+  const refetchCurrentTab = useCallback(async (tab: AdminTab) => {
+    fetchedTabs.current.delete(tab);
+    await fetchTab(tab, true);
+  }, [fetchTab]);
+
+  return {
+    overviewTab,
+    engagementTab,
+    audienceTab,
+    usersTab,
+    queueTab,
+    loading,
+    error,
+    fetchTab,
+    refetchCurrentTab,
+  };
 }
 
 export function useAdminUsers(page: number, search: string, sort: string, order: string) {

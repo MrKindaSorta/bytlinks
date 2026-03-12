@@ -9,7 +9,7 @@ import { usePage } from '../../hooks/usePage';
 import { useAuth } from '../../hooks/useAuth';
 import type { BusinessCard, BioPage, User } from '@bytlinks/shared';
 
-type CardField = 'show_avatar' | 'show_job_title' | 'show_bio' | 'show_email'
+type CardField = 'show_avatar' | 'show_job_title' | 'show_bio' | 'show_email' | 'show_secondary_email'
   | 'show_phone' | 'show_company' | 'show_address' | 'show_socials';
 
 export function MyCardsSection() {
@@ -246,9 +246,13 @@ export function MyCardsSection() {
   const resolvedPhone = rv(activeCard?.override_phone, page?.phone);
   const resolvedAddress = rv(activeCard?.override_address, page?.address);
   const resolvedEmail = rv(activeCard?.override_email, user?.email);
+  const resolvedEmailLabel = rv(activeCard?.override_email_label, page?.email_label) || 'Email';
+  const resolvedSecondaryEmail = rv(activeCard?.override_secondary_email, page?.secondary_email);
+  const resolvedSecondaryEmailLabel = rv(activeCard?.override_secondary_email_label, page?.secondary_email_label) || 'Email 2';
 
   const contactItems: { icon: typeof Mail; label: string; value: string }[] = [];
-  if (activeCard?.show_email && resolvedEmail) contactItems.push({ icon: Mail, label: 'Email', value: resolvedEmail });
+  if (activeCard?.show_email && resolvedEmail) contactItems.push({ icon: Mail, label: resolvedEmailLabel, value: resolvedEmail });
+  if (activeCard?.show_secondary_email && resolvedSecondaryEmail) contactItems.push({ icon: Mail, label: resolvedSecondaryEmailLabel, value: resolvedSecondaryEmail });
   if (activeCard?.show_phone && resolvedPhone) contactItems.push({ icon: Phone, label: 'Phone', value: resolvedPhone });
   if (activeCard?.show_company && resolvedCompany) contactItems.push({ icon: Building2, label: 'Company', value: resolvedCompany });
   if (activeCard?.show_address && resolvedAddress) contactItems.push({ icon: MapPin, label: 'Address', value: resolvedAddress });
@@ -459,6 +463,7 @@ export function MyCardsSection() {
 function CardSettings({
   card,
   cards,
+  page,
   saving,
   error,
   onToggleField,
@@ -486,6 +491,10 @@ function CardSettings({
   onOverrideBlur: (field: string) => void;
 }) {
   const isPrimary = card.order_num === 0;
+  const rvl = (override: string | null | undefined, pageVal: string | null | undefined) =>
+    isPrimary ? (pageVal ?? '') : (override ?? pageVal ?? '');
+  const emailLabel = rvl(card.override_email_label, page?.email_label) || 'Email';
+  const secEmailLabel = rvl(card.override_secondary_email_label, page?.secondary_email_label) || 'Email 2';
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent';
 
@@ -567,6 +576,30 @@ function CardSettings({
             placeholder="Email"
           />
           <input
+            type="text"
+            value={card.override_email_label ?? ''}
+            onChange={(e) => onOverrideChange('override_email_label', e.target.value)}
+            onBlur={() => onOverrideBlur('override_email_label')}
+            className={inputCls}
+            placeholder="Email Label (e.g. Work)"
+          />
+          <input
+            type="email"
+            value={card.override_secondary_email ?? ''}
+            onChange={(e) => onOverrideChange('override_secondary_email', e.target.value)}
+            onBlur={() => onOverrideBlur('override_secondary_email')}
+            className={inputCls}
+            placeholder="Secondary Email"
+          />
+          <input
+            type="text"
+            value={card.override_secondary_email_label ?? ''}
+            onChange={(e) => onOverrideChange('override_secondary_email_label', e.target.value)}
+            onBlur={() => onOverrideBlur('override_secondary_email_label')}
+            className={inputCls}
+            placeholder="Secondary Email Label"
+          />
+          <input
             type="tel"
             value={card.override_phone ?? ''}
             onChange={(e) => onOverrideChange('override_phone', e.target.value)}
@@ -599,7 +632,8 @@ function CardSettings({
         <FieldToggle icon={UserIcon} label="Avatar" checked={card.show_avatar} onChange={() => onToggleField('show_avatar')} />
         <FieldToggle icon={Briefcase} label="Job Title" checked={card.show_job_title} onChange={() => onToggleField('show_job_title')} />
         <FieldToggle icon={FileText} label="Bio" checked={card.show_bio} onChange={() => onToggleField('show_bio')} />
-        <FieldToggle icon={Mail} label="Email" checked={card.show_email} onChange={() => onToggleField('show_email')} />
+        <FieldToggle icon={Mail} label={emailLabel} checked={card.show_email} onChange={() => onToggleField('show_email')} />
+        <FieldToggle icon={Mail} label={secEmailLabel} checked={card.show_secondary_email} onChange={() => onToggleField('show_secondary_email')} />
         <FieldToggle icon={Phone} label="Phone" checked={card.show_phone} onChange={() => onToggleField('show_phone')} />
         <FieldToggle icon={Building2} label="Company" checked={card.show_company} onChange={() => onToggleField('show_company')} />
         <FieldToggle icon={MapPin} label="Address" checked={card.show_address} onChange={() => onToggleField('show_address')} />

@@ -418,7 +418,12 @@ publicRoutes.get('/:username/vcard', async (c) => {
       lines.push(`TITLE:${vcardEscape(page.job_title as string)}`);
     }
     if (owner?.email && showEmail) {
-      lines.push(`EMAIL;TYPE=INTERNET:${vcardEscape(owner.email)}`);
+      const emailLabel = (page.email_label as string) || 'INTERNET';
+      lines.push(`EMAIL;TYPE=${vcardEscape(emailLabel)}:${vcardEscape(owner.email)}`);
+    }
+    if (page.secondary_email && page.show_secondary_email_page) {
+      const secLabel = (page.secondary_email_label as string) || 'INTERNET';
+      lines.push(`EMAIL;TYPE=${vcardEscape(secLabel)}:${vcardEscape(page.secondary_email as string)}`);
     }
     if (page.phone && showPhone) {
       lines.push(`TEL;TYPE=CELL:${vcardEscape(page.phone as string)}`);
@@ -529,6 +534,9 @@ publicRoutes.get('/card/:token', async (c) => {
           phone: resolve(card.override_phone, page.phone),
           address: resolve(card.override_address, page.address),
           email: resolve(card.override_email, owner?.email),
+          email_label: resolve(card.override_email_label, page.email_label),
+          secondary_email: resolve(card.override_secondary_email, page.secondary_email),
+          secondary_email_label: resolve(card.override_secondary_email_label, page.secondary_email_label),
           theme,
           show_branding: !!page.show_branding,
         },
@@ -539,6 +547,7 @@ publicRoutes.get('/card/:token', async (c) => {
           show_job_title: !!card.show_job_title,
           show_bio: !!card.show_bio,
           show_email: !!card.show_email,
+          show_secondary_email: !!card.show_secondary_email,
           show_phone: !!card.show_phone,
           show_company: !!card.show_company,
           show_address: !!card.show_address,
@@ -636,6 +645,9 @@ publicRoutes.get('/:username', async (c) => {
           profession: page.profession ?? null,
           // Contact fields — only expose if page-visibility toggled on
           email: page.show_email_page ? (owner?.email ?? null) : null,
+          email_label: page.email_label ?? null,
+          secondary_email: page.show_secondary_email_page ? (page.secondary_email ?? null) : null,
+          secondary_email_label: page.secondary_email_label ?? null,
           phone: page.show_phone_page ? (page.phone ?? null) : null,
           company_name: page.show_company_page ? (page.company_name ?? null) : null,
           address: page.show_address_page ? (page.address ?? null) : null,

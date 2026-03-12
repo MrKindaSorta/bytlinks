@@ -52,8 +52,14 @@ export function ProfileEditor() {
   const [companyName, setCompanyName] = useState(page?.company_name ?? '');
   const [address, setAddress] = useState(page?.address ?? '');
 
+  // Email labels & secondary email
+  const [emailLabel, setEmailLabel] = useState(page?.email_label ?? '');
+  const [secondaryEmail, setSecondaryEmail] = useState(page?.secondary_email ?? '');
+  const [secondaryEmailLabel, setSecondaryEmailLabel] = useState(page?.secondary_email_label ?? '');
+
   // Visibility toggles (page only — card visibility is controlled per-card in Business Card settings)
   const [showEmailPage, setShowEmailPage] = useState(page?.show_email_page ?? false);
+  const [showSecondaryEmailPage, setShowSecondaryEmailPage] = useState(page?.show_secondary_email_page ?? false);
   const [showPhonePage, setShowPhonePage] = useState(page?.show_phone_page ?? false);
   const [showCompanyPage, setShowCompanyPage] = useState(page?.show_company_page ?? false);
   const [showAddressPage, setShowAddressPage] = useState(page?.show_address_page ?? false);
@@ -327,7 +333,7 @@ export function ProfileEditor() {
               />
             </div>
 
-            {/* Email (read-only, uses account email) */}
+            {/* Primary Email (read-only address, editable label) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
@@ -343,7 +349,62 @@ export function ProfileEditor() {
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-brand-border bg-brand-surface-alt">
                 <span className="font-body text-sm text-brand-text-muted">{user?.email}</span>
               </div>
-              <p className="font-body text-[11px] text-brand-text-muted">Uses your account email</p>
+              <input
+                type="text"
+                value={emailLabel}
+                onChange={(e) => {
+                  setEmailLabel(e.target.value);
+                  debouncedSave('email_label', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="Label (e.g. Work, Personal)"
+              />
+              <p className="font-body text-[11px] text-brand-text-muted">Uses your account email. Customize the label shown on your card.</p>
+            </div>
+
+            {/* Secondary Email */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="contact-secondary-email" className="flex items-center gap-1.5 font-body text-sm font-medium text-brand-text">
+                  <Mail className="w-3.5 h-3.5 text-brand-text-muted" />
+                  Secondary Email
+                </label>
+                <Toggle
+                  checked={showSecondaryEmailPage}
+                  onChange={(v) => handleToggle('show_secondary_email_page', v, setShowSecondaryEmailPage)}
+                  label="Show on page"
+                />
+              </div>
+              <input
+                id="contact-secondary-email"
+                type="email"
+                value={secondaryEmail}
+                onChange={(e) => {
+                  setSecondaryEmail(e.target.value);
+                  debouncedSave('secondary_email', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="other@example.com"
+              />
+              <input
+                type="text"
+                value={secondaryEmailLabel}
+                onChange={(e) => {
+                  setSecondaryEmailLabel(e.target.value);
+                  debouncedSave('secondary_email_label', e.target.value);
+                }}
+                className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+                           bg-brand-surface text-brand-text placeholder:text-brand-text-muted
+                           transition-colors duration-fast
+                           focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                placeholder="Label (e.g. Business, Personal)"
+              />
             </div>
 
             {/* Phone */}

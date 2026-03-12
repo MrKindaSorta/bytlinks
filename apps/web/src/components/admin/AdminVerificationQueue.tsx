@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BadgeCheck, X, ExternalLink } from 'lucide-react';
+import { BadgeCheck, X } from 'lucide-react';
 import type { VerificationRequest } from '../../hooks/useAdminAnalytics';
 
 function timeAgo(ts: number): string {
@@ -48,7 +48,7 @@ export function AdminVerificationQueue({
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
                   <p className="font-body text-xs font-medium text-brand-text">
-                    {req.full_name}
+                    {req.display_name || req.email}
                     {req.username && (
                       <span className="text-brand-text-muted ml-1">/{req.username}</span>
                     )}
@@ -58,23 +58,8 @@ export function AdminVerificationQueue({
                 <span className="font-body text-[11px] text-brand-text-muted shrink-0">{timeAgo(req.created_at)}</span>
               </div>
 
-              <p className="font-body text-xs text-brand-text mb-2">{req.reason}</p>
-
-              {req.links && (
-                <div className="mb-2">
-                  {req.links.split('\n').filter(Boolean).map((link, i) => (
-                    <a
-                      key={i}
-                      href={link.trim()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-body text-[11px] text-brand-accent hover:underline inline-flex items-center gap-0.5 mr-3"
-                    >
-                      {link.trim().replace(/^https?:\/\//, '').slice(0, 40)}
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  ))}
-                </div>
+              {req.reason && (
+                <p className="font-body text-xs text-brand-text mb-2">{req.reason}</p>
               )}
 
               <div className="flex gap-2">

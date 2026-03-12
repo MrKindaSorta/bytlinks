@@ -42,8 +42,12 @@ export function usePage() {
     phone?: string;
     company_name?: string;
     address?: string;
+    email_label?: string;
+    secondary_email?: string;
+    secondary_email_label?: string;
     show_email_page?: boolean;
     show_email_card?: boolean;
+    show_secondary_email_page?: boolean;
     show_phone_page?: boolean;
     show_phone_card?: boolean;
     show_company_page?: boolean;
@@ -63,7 +67,9 @@ export function usePage() {
     const current = usePageStore.getState().page;
     const directFields = ['display_name', 'bio', 'about_me', 'about_me_expanded', 'section_order',
       'job_title', 'profession', 'phone', 'company_name', 'address',
-      'show_email_page', 'show_email_card', 'show_phone_page', 'show_phone_card',
+      'email_label', 'secondary_email', 'secondary_email_label',
+      'show_email_page', 'show_email_card', 'show_secondary_email_page',
+      'show_phone_page', 'show_phone_card',
       'show_company_page', 'show_company_card', 'show_address_page', 'show_address_card'] as const;
     if (directFields.some((f) => (updates as Record<string, unknown>)[f] !== undefined)) {
       usePageStore.getState().setPage(current ? { ...current, ...updates } as typeof current : null);

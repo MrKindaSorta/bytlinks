@@ -6,6 +6,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from 'recharts';
 
 interface ViewDay {
@@ -19,7 +20,7 @@ function formatDay(day: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function AdminViewsChart({ data }: { data: ViewDay[] }) {
+export function AdminViewsChart({ data, days = 30 }: { data: ViewDay[]; days?: number }) {
   if (data.length === 0) {
     return (
       <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
@@ -34,9 +35,9 @@ export function AdminViewsChart({ data }: { data: ViewDay[] }) {
   return (
     <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
       <h3 className="font-display text-sm font-700 tracking-tight text-brand-text mb-4">
-        Platform Views & Clicks (30d)
+        Platform Views & Clicks ({days}d)
       </h3>
-      <div className="h-[220px]">
+      <div className="h-[240px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
             <defs>
@@ -71,6 +72,11 @@ export function AdminViewsChart({ data }: { data: ViewDay[] }) {
                 fontSize: 12,
                 fontFamily: 'var(--font-body)',
               }}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 11, fontFamily: 'var(--font-body)' }}
             />
             <Area type="monotone" dataKey="views" stroke="var(--color-brand-accent, #10b981)" strokeWidth={2} fill="url(#adminViewsGrad)" name="Views" />
             <Area type="monotone" dataKey="clicks" stroke="var(--color-brand-text-muted, #6b7280)" strokeWidth={1.5} fill="url(#adminClicksGrad)" name="Clicks" />
