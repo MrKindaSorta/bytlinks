@@ -183,7 +183,7 @@ export default function PublicPage() {
 
     if (useTwoColumn) {
       return (
-        <div className={`grid ${resolveGridGap(theme.spacing)} lg:grid-cols-2`}>
+        <div className={`grid ${resolveGridGap(theme.spacing)} lg:grid-cols-2 [&>div>*]:my-0`}>
           {items}
         </div>
       );

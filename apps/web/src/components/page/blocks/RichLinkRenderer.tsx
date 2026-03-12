@@ -40,7 +40,7 @@ export function RichLinkRenderer({ block, pageId }: BlockRendererProps) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="scroll-reveal my-4 flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 hover:translate-y-[-1px]"
+        className="scroll-reveal my-6 flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 hover:translate-y-[-1px]"
         style={{
           background: 'var(--page-surface-alt, rgba(128,128,128,0.05))',
         }}
