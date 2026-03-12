@@ -847,7 +847,7 @@ export function MyBytLink() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
         <SortableContext items={draggableOrder} strategy={strategy}>
           {editTwoColumn ? (
-            <div className={`grid ${resolveGridGap(theme.spacing)} [&>div>*]:my-0`} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <div className={`grid ${resolveGridGap(theme.spacing)} [&_.scroll-reveal]:my-0`} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
               {items}
             </div>
           ) : (
