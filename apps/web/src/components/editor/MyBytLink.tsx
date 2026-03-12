@@ -202,9 +202,9 @@ export function MyBytLink() {
   // Filter to valid entries for DnD
   // In split/sidebar edit mode, social_links is rendered in the hero sidebar
   const desktopLayoutForFilter = resolveDesktopLayoutVariant(theme);
-  const splitEditMode = editTwoColumn && (desktopLayoutForFilter === 'left-photo' || desktopLayoutForFilter === 'right-photo' || desktopLayoutForFilter === 'sidebar');
+  const sidebarOrSplitEditMode = editTwoColumn && (desktopLayoutForFilter === 'left-photo' || desktopLayoutForFilter === 'right-photo' || desktopLayoutForFilter === 'sidebar');
   const draggableOrder = sectionOrder.filter((entry) => {
-    if (entry === 'social_links') return !splitEditMode;
+    if (entry === 'social_links') return !sidebarOrSplitEditMode;
     if (entry === 'links') return true;
     if (entry.startsWith('block:')) return blockMap.has(entry.slice(6));
     return false;
@@ -766,8 +766,8 @@ export function MyBytLink() {
 
     function resolveSpanStyle(entry: string): React.CSSProperties | undefined {
       if (!editTwoColumn) return undefined;
-      // Built-in sections always span full width in 2-col grid
-      if (isBuiltIn(entry)) return { gridColumn: '1 / -1' };
+      if (entry === 'social_links') return { gridColumn: '1 / -1' };
+      if (entry === 'links') return undefined; // Let links take 1 column in 2-col grid
       const block = getBlock(entry);
       if (block && resolveBlockColumnSpan(block) === 'full') return { gridColumn: '1 / -1' };
       return undefined;
@@ -875,7 +875,7 @@ export function MyBytLink() {
       if (entry === 'social_links') return null;
       if (entry === 'links') {
         return (
-          <div key="links" style={useTwoColumn ? { gridColumn: '1 / -1' } : undefined}>
+          <div key="links">
             <PageLinks links={links} buttonStyle={btnStyle} />
             {embeds.length > 0 && <PageEmbeds embeds={embeds} />}
           </div>

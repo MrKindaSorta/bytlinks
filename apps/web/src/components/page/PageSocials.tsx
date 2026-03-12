@@ -67,7 +67,7 @@ interface PageSocialsProps {
 }
 
 export function PageSocials({ socialLinks, layoutVariant = 'centered', pageId }: PageSocialsProps) {
-  const justifyClass = layoutVariant === 'centered'
+  const justifyClass = (layoutVariant === 'centered' || layoutVariant === 'sidebar')
     ? 'justify-center'
     : layoutVariant === 'right-photo'
       ? 'justify-end'

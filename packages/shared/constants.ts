@@ -224,14 +224,14 @@ export const BLOCK_TYPE_META = {
 
 /** Block types that span full width in 2-column desktop grid */
 export const FULL_WIDTH_BLOCKS: readonly string[] = [
-  'embed', 'image-gallery', 'testimonials', 'social-post',
-  'newsletter', 'collabs', 'schedule', 'booking',
+  'image-gallery', 'testimonials', 'social-post', 'newsletter',
 ] as const;
 
 /** Block types that stay single-column in 2-column grid */
 export const SINGLE_COL_BLOCKS: readonly string[] = [
   'quote', 'rich-link', 'countdown', 'stats', 'tip-jar',
   'file-download', 'faq', 'poll', 'microblog', 'event', 'product-card',
+  'embed', 'collabs', 'schedule', 'booking',
 ] as const;
 
 /** Resolve effective column span for a block (per-block override → block type default). */

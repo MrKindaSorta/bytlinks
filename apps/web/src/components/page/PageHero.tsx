@@ -88,6 +88,18 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
     );
   }
 
+  // Sidebar layout — vertically stacked, left-aligned for narrow 280px column
+  if (layoutVariant === 'sidebar') {
+    return (
+      <div>
+        {avatar}
+        {nameBlock}
+        {bioBlock}
+        {aboutBlock}
+      </div>
+    );
+  }
+
   // Side-by-side layouts — visible from sm (640px) up
   const isLeft = layoutVariant === 'left-photo';
 

@@ -1,4 +1,4 @@
-import type { LayoutVariant, ContentDisplay, SectionsMode, SectionNavPosition } from '@bytlinks/shared';
+import type { LayoutVariant, ContentDisplay, SectionsMode, SectionNavPosition, Spacing } from '@bytlinks/shared';
 
 /* ── Layout wireframe mini-previews ── */
 
@@ -164,6 +164,8 @@ interface LayoutPickerProps {
   onChangeDisplay: (v: ContentDisplay) => void;
   twoColumnDesktop?: boolean;
   onChangeTwoColumn?: (v: boolean) => void;
+  spacing?: Spacing;
+  onChangeSpacing?: (v: Spacing) => void;
   sectionsMode?: SectionsMode;
   sectionNavPosition?: SectionNavPosition;
   onChangeSectionsMode?: (v: SectionsMode) => void;
@@ -177,6 +179,8 @@ export function LayoutPicker({
   onChangeDisplay,
   twoColumnDesktop,
   onChangeTwoColumn,
+  spacing,
+  onChangeSpacing,
   sectionsMode,
   sectionNavPosition,
   onChangeSectionsMode,
@@ -296,6 +300,28 @@ export function LayoutPicker({
                 style={{ transform: twoColumnDesktop ? 'translateX(18px)' : 'translateX(2px)' }}
               />
             </button>
+          </div>
+        )}
+
+        {/* Spacing */}
+        {onChangeSpacing && (
+          <div className="mt-3">
+            <p className="font-body text-[11px] font-medium text-brand-text">Spacing</p>
+            <div className="flex gap-1.5 mt-1.5">
+              {(['compact', 'comfortable', 'airy'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => onChangeSpacing(s)}
+                  className={`font-body text-xs font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 flex-1 text-center capitalize
+                    ${spacing === s
+                      ? 'bg-brand-accent text-white'
+                      : 'bg-brand-surface-alt text-brand-text-secondary hover:text-brand-text'
+                    }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

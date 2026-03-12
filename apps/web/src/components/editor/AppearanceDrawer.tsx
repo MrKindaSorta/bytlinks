@@ -33,6 +33,7 @@ import type {
   ContentDisplay,
   SectionsMode,
   SectionNavPosition,
+  Spacing,
 } from '@bytlinks/shared';
 
 /* ── Animated collapse wrapper ── */
@@ -342,6 +343,8 @@ export function AppearanceDrawer({ open, onClose }: AppearanceDrawerProps) {
                           }
                           twoColumnDesktop={theme.twoColumnDesktop}
                           onChangeTwoColumn={(twoColumnDesktop: boolean) => update({ twoColumnDesktop })}
+                          spacing={theme.spacing}
+                          onChangeSpacing={(spacing: Spacing) => update({ spacing })}
                         />
                         <button
                           onClick={() => update({ desktopOverrides: null })}
@@ -371,6 +374,8 @@ export function AppearanceDrawer({ open, onClose }: AppearanceDrawerProps) {
                         }}
                         twoColumnDesktop={theme.twoColumnDesktop}
                         onChangeTwoColumn={(twoColumnDesktop: boolean) => update({ twoColumnDesktop })}
+                        spacing={theme.spacing}
+                        onChangeSpacing={(spacing: Spacing) => update({ spacing })}
                         sectionsMode={theme.sectionsConfig?.mode}
                         sectionNavPosition={theme.sectionsConfig?.navPosition}
                         onChangeSectionsMode={(mode: SectionsMode) =>

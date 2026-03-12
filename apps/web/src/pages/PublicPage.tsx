@@ -159,16 +159,6 @@ export default function PublicPage() {
     const items = order.map((entry) => {
       if (entry === 'social_links') return null;
       if (entry === 'links') {
-        if (useTwoColumn) {
-          return (
-            <div key="links" style={{ gridColumn: '1 / -1' }}>
-              <div className="two-col-grid grid gap-3" style={{ gridTemplateColumns: '1fr' }}>
-                <PageLinks links={links} buttonStyle={btnStyle} pageId={page.id} asFragment />
-              </div>
-              <PageEmbeds embeds={embeds} />
-            </div>
-          );
-        }
         return (
           <div key="links">
             <PageLinks links={links} buttonStyle={btnStyle} pageId={page.id} />
