@@ -231,7 +231,7 @@ export const FULL_WIDTH_BLOCKS: readonly string[] = [
 /** Block types that stay single-column in 2-column grid */
 export const SINGLE_COL_BLOCKS: readonly string[] = [
   'quote', 'rich-link', 'countdown', 'stats', 'tip-jar',
-  'file-download', 'faq', 'poll', 'microblog', 'event',
+  'file-download', 'faq', 'poll', 'microblog', 'event', 'product-card',
 ] as const;
 
 /** Resolve effective column span for a block (per-block override → block type default). */

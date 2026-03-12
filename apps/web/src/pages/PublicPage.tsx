@@ -13,7 +13,7 @@ import { PageBadge } from '../components/page/PageBadge';
 import { SectionsRenderer } from '../components/page/SectionsRenderer';
 import { CardsRenderer } from '../components/page/CardsRenderer';
 import { blockRendererRegistry } from '../components/page/blocks/blockRendererRegistry';
-import { resolveButtonStyle, resolveLayoutVariant, resolveContentDisplay, resolveDesktopLayoutVariant, resolveDesktopContentDisplay, resolveTwoColumnDesktop } from '../utils/styleDefaults';
+import { resolveButtonStyle, resolveLayoutVariant, resolveContentDisplay, resolveDesktopLayoutVariant, resolveDesktopContentDisplay, resolveTwoColumnDesktop, resolveContainerWidth, resolveGridGap } from '../utils/styleDefaults';
 
 interface PageData {
   page: BioPage;
@@ -147,7 +147,8 @@ export default function PublicPage() {
   const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} verified={data.verified} />;
   const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} verified={data.verified} />;
 
-  const desktopIsSplit = desktopLayout !== 'centered';
+  const desktopIsSidebar = desktopLayout === 'sidebar';
+  const desktopIsSplit = desktopLayout === 'left-photo' || desktopLayout === 'right-photo';
   const desktopIsLeft = desktopLayout === 'left-photo';
 
   /* ── Flat section_order renderer (used by Flow + Spotlight) ── */
@@ -192,12 +193,9 @@ export default function PublicPage() {
 
     if (useTwoColumn) {
       return (
-        <>
-          <style>{`@media (min-width: 768px) { .two-col-content { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
-          <div className="two-col-content grid gap-4" style={{ gridTemplateColumns: '1fr' }}>
-            {items}
-          </div>
-        </>
+        <div className={`grid ${resolveGridGap(theme.spacing)} lg:grid-cols-2`}>
+          {items}
+        </div>
       );
     }
 
@@ -296,19 +294,32 @@ export default function PublicPage() {
             {heroNode}
             {desktopSocials}
           </div>
-          <div className={desktopIsLeft ? 'order-2' : 'order-1'}>
+          <main className={desktopIsLeft ? 'order-2' : 'order-1'}>
             {contentNode}
-          </div>
+          </main>
         </div>
       </div>
     );
 
+    const sidebarLayout = (heroNode: React.ReactNode, contentNode: React.ReactNode) => (
+      <div className="max-w-6xl mx-auto px-5 py-16">
+        <div className="grid grid-cols-[280px_1fr] gap-12 items-start">
+          <aside className="sticky top-16 self-start">{heroNode}{desktopSocials}</aside>
+          <main>{contentNode}</main>
+        </div>
+      </div>
+    );
+
+    const containerWidth = resolveContainerWidth(theme);
     const centeredWrap = (children: React.ReactNode) => (
-      <div className="max-w-lg mx-auto px-5 py-16">{children}</div>
+      <main className={`${containerWidth} mx-auto px-5 py-16`}>{children}</main>
     );
 
     /* ── Spotlight ── */
     if (desktopDisplay === 'spotlight') {
+      if (desktopIsSidebar) {
+        return sidebarLayout(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
+      }
       if (desktopIsSplit) {
         return splitGrid(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
       }
@@ -326,6 +337,9 @@ export default function PublicPage() {
 
     /* ── Sections ── */
     if (desktopDisplay === 'sections') {
+      if (desktopIsSidebar) {
+        return sidebarLayout(desktopHero, <div>{renderGroupedContent()}</div>);
+      }
       if (desktopIsSplit) {
         return splitGrid(desktopHero, <div>{renderGroupedContent()}</div>);
       }
@@ -340,6 +354,9 @@ export default function PublicPage() {
 
     /* ── Cards ── */
     if (desktopDisplay === 'cards') {
+      if (desktopIsSidebar) {
+        return sidebarLayout(desktopHero, <div>{renderCardsContent()}</div>);
+      }
       if (desktopIsSplit) {
         return splitGrid(desktopHero, <div>{renderCardsContent()}</div>);
       }
@@ -353,6 +370,9 @@ export default function PublicPage() {
     }
 
     /* ── Flow (default) ── */
+    if (desktopIsSidebar) {
+      return sidebarLayout(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
+    }
     if (desktopIsSplit) {
       return splitGrid(desktopHero, <div>{renderFlatSections(twoColumn)}</div>);
     }
@@ -372,10 +392,10 @@ export default function PublicPage() {
     <PageShell theme={theme}>
       <PageHead title={pageTitle} description={pageDesc || undefined} />
       <div ref={pageRef}>
-        <div className="md:hidden">
+        <div className="lg:hidden">
           {renderMobile()}
         </div>
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           {renderDesktop()}
         </div>
       </div>

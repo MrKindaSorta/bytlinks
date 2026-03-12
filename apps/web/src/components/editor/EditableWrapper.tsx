@@ -124,7 +124,7 @@ export function EditableWrapper({
           <button
             {...attributes}
             {...listeners}
-            className="p-1 rounded cursor-grab active:cursor-grabbing transition-colors duration-150"
+            className="p-1 rounded cursor-grab active:cursor-grabbing transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: 'var(--page-text-muted, rgba(0,0,0,0.3))' }}
             title="Drag to reorder"
           >
@@ -136,7 +136,7 @@ export function EditableWrapper({
         {onEdit && (
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="p-1 rounded transition-colors duration-150 hover:opacity-70"
+            className="p-1 rounded transition-colors duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: 'var(--page-accent, #0d9488)' }}
             title="Edit"
           >
@@ -148,8 +148,9 @@ export function EditableWrapper({
         {onToggleColumnSpan && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleColumnSpan(); }}
-            className="p-1 rounded transition-colors duration-150 hover:opacity-70"
+            className="p-1 rounded transition-colors duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: 'var(--page-text-muted, rgba(0,0,0,0.3))' }}
+            aria-label={columnSpan === 'full' ? `${label}: switch to half width` : `${label}: switch to full width`}
             title={columnSpan === 'full' ? 'Half width' : 'Full width'}
           >
             {columnSpan === 'full' ? <Square className="w-3.5 h-3.5" /> : <Columns2 className="w-3.5 h-3.5" />}
@@ -160,7 +161,7 @@ export function EditableWrapper({
         {!isBuiltIn && onToggleVisibility && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
-            className="p-1 rounded transition-colors duration-150 hover:opacity-70"
+            className="p-1 rounded transition-colors duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: 'var(--page-text-muted, rgba(0,0,0,0.3))' }}
             title={isVisible ? 'Hide' : 'Show'}
           >
@@ -172,7 +173,7 @@ export function EditableWrapper({
         {!isBuiltIn && onDuplicate && (
           <button
             onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
-            className="p-1 rounded transition-colors duration-150 hover:opacity-70"
+            className="p-1 rounded transition-colors duration-150 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: 'var(--page-text-muted, rgba(0,0,0,0.3))' }}
             title="Duplicate"
           >
@@ -184,7 +185,7 @@ export function EditableWrapper({
         {!isBuiltIn && onDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-1 rounded transition-colors duration-150"
+            className="p-1 rounded transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--page-accent,#0d9488)] focus-visible:ring-offset-1"
             style={{ color: '#ef4444' }}
             title="Delete"
           >
@@ -199,10 +200,16 @@ export function EditableWrapper({
         {/* Mobile interaction shield — blocks touches from reaching interactive content
             (e.g. embedded videos, iframes) so taps select the section instead.
             Desktop uses hover controls so no shield needed. */}
-        <div
-          className="absolute inset-0 z-10 lg:hidden"
-          aria-hidden="true"
-        />
+        <div className="absolute inset-0 z-10 lg:hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="pointer-events-auto px-3 py-1.5 rounded-full text-[10px] font-semibold shadow-md opacity-0 group-hover/editable:opacity-100 transition-opacity duration-200"
+              style={{ background: 'var(--page-surface, rgba(255,255,255,0.9))', color: 'var(--page-accent, #0d9488)' }}
+            >
+              Tap to select
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

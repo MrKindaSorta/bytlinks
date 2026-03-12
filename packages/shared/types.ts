@@ -110,7 +110,7 @@ export type SocialStyle =
 
 export type Spacing = 'compact' | 'comfortable' | 'airy';
 
-export type LayoutVariant = 'centered' | 'left-photo' | 'right-photo';
+export type LayoutVariant = 'centered' | 'left-photo' | 'right-photo' | 'sidebar';
 
 /** How content is displayed — one unified choice, no conflicting combos.
  *  Legacy values (scroll, below-fold, hamburger, tab-bar) are mapped at runtime. */
@@ -141,6 +141,7 @@ export type HamburgerPosition = 'top-left' | 'top-right';
 export interface DesktopOverrides {
   layoutVariant?: LayoutVariant;
   contentDisplay?: ContentDisplay;
+  containerWidth?: 'default' | 'wide' | 'full';
   /** @deprecated Kept for migration only */
   hamburgerPosition?: HamburgerPosition;
 }
@@ -215,8 +216,12 @@ export interface BioPage {
   phone: string | null;
   company_name: string | null;
   address: string | null;
+  email_label: string | null;
+  secondary_email: string | null;
+  secondary_email_label: string | null;
   show_email_page: boolean;
   show_email_card: boolean;
+  show_secondary_email_page: boolean;
   show_phone_page: boolean;
   show_phone_card: boolean;
   show_company_page: boolean;
@@ -655,6 +660,7 @@ export interface BusinessCard {
   show_job_title: boolean;
   show_bio: boolean;
   show_email: boolean;
+  show_secondary_email: boolean;
   show_phone: boolean;
   show_company: boolean;
   show_address: boolean;
@@ -670,6 +676,9 @@ export interface BusinessCard {
   override_company_name?: string | null;
   override_address?: string | null;
   override_email?: string | null;
+  override_email_label?: string | null;
+  override_secondary_email?: string | null;
+  override_secondary_email_label?: string | null;
 }
 
 /** Snapshot of a contact's card data stored in the rolodex */

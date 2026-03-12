@@ -1,4 +1,4 @@
-import type { BaseStyle, ButtonStyle, FontPair, Animation, LayoutVariant, ContentDisplay, Theme, SectionsConfig } from '@bytlinks/shared';
+import type { BaseStyle, ButtonStyle, FontPair, Animation, LayoutVariant, ContentDisplay, Theme, SectionsConfig, Spacing } from '@bytlinks/shared';
 
 /**
  * Each base style ships with recommended defaults for font, button, and animation.
@@ -115,7 +115,7 @@ export function resolveDesktopContentDisplay(theme: Theme): ContentDisplay {
 /** Check if desktop has independent layout settings. */
 export function hasDesktopOverrides(theme: Theme): boolean {
   const o = theme.desktopOverrides;
-  return !!o && (o.layoutVariant != null || o.contentDisplay != null);
+  return !!o && (o.layoutVariant != null || o.contentDisplay != null || o.containerWidth != null);
 }
 
 /** Resolve sections config — returns null if contentDisplay is not sections/cards. */
@@ -128,4 +128,24 @@ export function resolveSectionsConfig(theme: Theme): SectionsConfig | null {
 /** Resolve 2-column desktop toggle. */
 export function resolveTwoColumnDesktop(theme: Theme): boolean {
   return theme.twoColumnDesktop ?? false;
+}
+
+/** Resolve container width class — auto-widens for 2-column or sidebar layouts. */
+export function resolveContainerWidth(theme: Theme): string {
+  const explicit = theme.desktopOverrides?.containerWidth;
+  if (explicit === 'full') return 'max-w-6xl';
+  if (explicit === 'wide') return 'max-w-4xl';
+  const desktopLayout = resolveDesktopLayoutVariant(theme);
+  if (desktopLayout === 'sidebar') return 'max-w-6xl';
+  if (theme.twoColumnDesktop) return 'max-w-4xl';
+  return 'max-w-lg';
+}
+
+/** Resolve grid gap class from spacing setting. */
+export function resolveGridGap(spacing: Spacing | undefined): string {
+  switch (spacing) {
+    case 'compact': return 'gap-2';
+    case 'airy': return 'gap-6';
+    default: return 'gap-4';
+  }
 }

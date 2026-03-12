@@ -20,6 +20,26 @@ function LayoutWireframe({ variant }: { variant: LayoutVariant }) {
     );
   }
 
+  if (variant === 'sidebar') {
+    return (
+      <div className="py-1">
+        <div className="flex items-start gap-1.5">
+          <div className="shrink-0 w-[30%] space-y-1">
+            <div className={`${box} mx-auto`} style={{ width: 14, height: 14 }} />
+            <div className={`${line2} w-full`} />
+            <div className={`${line2} w-3/4 mx-auto`} />
+          </div>
+          <div className="w-px self-stretch bg-current opacity-10" />
+          <div className="flex-1 space-y-1 pt-0.5">
+            <div className={`${line1} w-full`} />
+            <div className={`${line1} w-full`} />
+            <div className={`${line1} w-3/4`} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isLeft = variant === 'left-photo';
   return (
     <div className="py-1">
@@ -115,6 +135,7 @@ const LAYOUTS: { key: LayoutVariant; label: string }[] = [
   { key: 'centered', label: 'Centered' },
   { key: 'left-photo', label: 'Left Photo' },
   { key: 'right-photo', label: 'Right Photo' },
+  { key: 'sidebar', label: 'Sidebar' },
 ];
 
 const CONTENT_DISPLAYS: { key: ContentDisplay; label: string; desc: string }[] = [
@@ -169,7 +190,7 @@ export function LayoutPicker({
       {/* ── Profile Layout ── */}
       <div>
         <p className="font-body text-xs font-medium text-brand-text-muted mb-2">Profile Layout</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {LAYOUTS.map((l) => (
             <button
               key={l.key}

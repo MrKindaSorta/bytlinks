@@ -50,6 +50,8 @@ import {
   resolveDesktopLayoutVariant,
   resolveDesktopContentDisplay,
   resolveTwoColumnDesktop,
+  resolveContainerWidth,
+  resolveGridGap,
   STYLE_COLORS,
 } from '../../utils/styleDefaults';
 import { applyTheme, getAnimationClass } from '../../utils/themeApplicator';
@@ -198,9 +200,9 @@ export function MyBytLink() {
   const isSectioned = contentDisplay === 'sections' || contentDisplay === 'cards';
 
   // Filter to valid entries for DnD
-  // In split edit mode, social_links is rendered in the hero sidebar
+  // In split/sidebar edit mode, social_links is rendered in the hero sidebar
   const desktopLayoutForFilter = resolveDesktopLayoutVariant(theme);
-  const splitEditMode = editTwoColumn && desktopLayoutForFilter !== 'centered';
+  const splitEditMode = editTwoColumn && (desktopLayoutForFilter === 'left-photo' || desktopLayoutForFilter === 'right-photo' || desktopLayoutForFilter === 'sidebar');
   const draggableOrder = sectionOrder.filter((entry) => {
     if (entry === 'social_links') return !splitEditMode;
     if (entry === 'links') return true;
@@ -844,7 +846,7 @@ export function MyBytLink() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
         <SortableContext items={draggableOrder} strategy={strategy}>
           {editTwoColumn ? (
-            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <div className={`grid ${resolveGridGap(theme.spacing)}`} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
               {items}
             </div>
           ) : (
@@ -896,12 +898,9 @@ export function MyBytLink() {
 
     if (useTwoColumn) {
       return (
-        <>
-          <style>{`@media (min-width: 768px) { .two-col-content { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
-          <div className="two-col-content grid gap-4" style={{ gridTemplateColumns: '1fr' }}>
-            {items}
-          </div>
-        </>
+        <div className={`grid ${resolveGridGap(theme.spacing)} lg:grid-cols-2`}>
+          {items}
+        </div>
       );
     }
     return <>{items}</>;
@@ -911,7 +910,8 @@ export function MyBytLink() {
     const desktopLayout = resolveDesktopLayoutVariant(theme);
     const desktopDisplay = resolveDesktopContentDisplay(theme);
     const twoColumn = resolveTwoColumnDesktop(theme);
-    const desktopIsSplit = desktopLayout !== 'centered';
+    const desktopIsSidebar = desktopLayout === 'sidebar';
+    const desktopIsSplit = desktopLayout === 'left-photo' || desktopLayout === 'right-photo';
     const desktopIsLeft = desktopLayout === 'left-photo';
 
     const heroNode = <PageHero page={p} username={p.username} layoutVariant={desktopLayout} />;
@@ -928,15 +928,25 @@ export function MyBytLink() {
             {heroSide}
             {socialsNode}
           </div>
-          <div className={desktopIsLeft ? 'order-2' : 'order-1'}>
+          <main className={desktopIsLeft ? 'order-2' : 'order-1'}>
             {contentSide}
-          </div>
+          </main>
         </div>
       </div>
     );
 
+    const sidebarLayout = (heroSide: React.ReactNode, contentSide: React.ReactNode) => (
+      <div className="max-w-6xl mx-auto px-5 py-16">
+        <div className="grid grid-cols-[280px_1fr] gap-12 items-start">
+          <aside className="sticky top-16 self-start">{heroSide}{socialsNode}</aside>
+          <main>{contentSide}</main>
+        </div>
+      </div>
+    );
+
+    const previewContainerWidth = resolveContainerWidth(theme);
     const centeredWrap = (children: React.ReactNode) => (
-      <div className="max-w-lg mx-auto px-5 py-16">{children}</div>
+      <main className={`${previewContainerWidth} mx-auto px-5 py-16`}>{children}</main>
     );
 
     const scrollIndicator = (
@@ -949,6 +959,9 @@ export function MyBytLink() {
     );
 
     if (desktopDisplay === 'spotlight') {
+      if (desktopIsSidebar) {
+        return sidebarLayout(heroNode, <div>{contentNode}{badge}</div>);
+      }
       if (desktopIsSplit) {
         return splitGrid(heroNode, <div>{contentNode}{badge}</div>);
       }
@@ -965,6 +978,9 @@ export function MyBytLink() {
     }
 
     // Flow (default) + other display modes
+    if (desktopIsSidebar) {
+      return sidebarLayout(heroNode, <div>{contentNode}{badge}</div>);
+    }
     if (desktopIsSplit) {
       return splitGrid(heroNode, <div>{contentNode}{badge}</div>);
     }
@@ -1192,7 +1208,8 @@ export function MyBytLink() {
 
   // Edit mode
   const desktopLayout = resolveDesktopLayoutVariant(theme);
-  const desktopIsSplit = desktopLayout !== 'centered';
+  const desktopIsSidebar = desktopLayout === 'sidebar';
+  const desktopIsSplit = desktopLayout === 'left-photo' || desktopLayout === 'right-photo';
   const desktopIsLeft = desktopLayout === 'left-photo';
 
   return (
@@ -1200,7 +1217,18 @@ export function MyBytLink() {
       <PageShell theme={theme}>
         {renderToolbar()}
 
-        {editTwoColumn && desktopIsSplit ? (
+        {editTwoColumn && desktopIsSidebar ? (
+          /* Sidebar layout edit mode */
+          <div className="max-w-6xl mx-auto px-5 py-10 pb-24" data-preview>
+            <div className="grid grid-cols-[280px_1fr] gap-12 items-start">
+              <aside className="sticky top-16 self-start">
+                {renderEditableHero()}
+                {renderEditableSocials()}
+              </aside>
+              <main>{renderFlatContent()}</main>
+            </div>
+          </div>
+        ) : editTwoColumn && desktopIsSplit ? (
           /* Split layout edit mode: hero sidebar + 2-col content */
           <div className="max-w-5xl mx-auto px-5 py-10 pb-24" data-preview>
             <div className="grid grid-cols-[7fr_13fr] gap-12 items-start">
@@ -1208,20 +1236,20 @@ export function MyBytLink() {
                 {renderEditableHero()}
                 {renderEditableSocials()}
               </div>
-              <div className={desktopIsLeft ? 'order-2' : 'order-1'}>
+              <main className={desktopIsLeft ? 'order-2' : 'order-1'}>
                 {renderFlatContent()}
-              </div>
+              </main>
             </div>
           </div>
         ) : editTwoColumn ? (
           /* Centered 2-col edit mode: wider container */
-          <div className="max-w-3xl mx-auto px-5 py-10 pb-24" data-preview>
+          <div className={`${resolveContainerWidth(theme)} mx-auto px-5 py-10 pb-24`} data-preview>
             {renderEditableHero()}
             {renderFlatContent()}
           </div>
         ) : (
           /* Single-column edit mode (mobile / 2-col off) */
-          <div className="max-w-lg mx-auto px-5 py-10 pb-24" data-preview>
+          <div className={`${resolveContainerWidth(theme)} mx-auto px-5 py-10 pb-24`} data-preview>
             {renderEditableHero()}
             {renderFlatContent()}
           </div>
