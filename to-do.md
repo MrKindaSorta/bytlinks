@@ -34,18 +34,18 @@
   ```
 
 ### Database Migrations
-- [ ] Run the new migrations on your D1 database:
-  ```
-  wrangler d1 execute bytlinks-db --file=migrations/027_password_reset_tokens.sql
-  wrangler d1 execute bytlinks-db --file=migrations/028_stripe_subscription.sql
-  ```
+- [x] ~~Run migration 027~~ — done via `wrangler d1 execute --remote` (2026-03-12)
+- [x] ~~Run migration 028~~ — done via `wrangler d1 execute --remote` (2026-03-12)
+
+### Code Deployment
+- [x] ~~Pushed to GitHub~~ — commit `836dd97`, triggers Cloudflare Actions deploy (2026-03-12)
 
 ### Verify After Deploy
 - [ ] Go to /login → click "Forgot password?" → enter email → check inbox
 - [ ] Complete password reset flow end-to-end
 - [ ] Sign up a new test account → check for welcome email
-- [ ] Test upgrade flow → should redirect to Stripe Checkout
-- [ ] Test webhook → after payment, user should become Pro
+- [ ] Test upgrade flow → should redirect to Stripe Checkout (needs Stripe secrets first)
+- [ ] Test webhook → after payment, user should become Pro (needs Stripe secrets first)
 - [ ] Visit homepage → confirm new headline "Your professional presence, in one link."
 
 ---
@@ -53,18 +53,15 @@
 ## Sprint 2 — Conversion Funnel
 
 ### Database Migrations
-- [ ] Run the new migrations:
-  ```
-  wrangler d1 execute bytlinks-db --file=migrations/029_dismissed_onboarding.sql
-  wrangler d1 execute bytlinks-db --file=migrations/030_email_tracking.sql
-  ```
+- [x] ~~Run migration 029~~ — done via `wrangler d1 execute --remote` (2026-03-12)
+- [x] ~~Run migration 030~~ — done via `wrangler d1 execute --remote` (2026-03-12)
 
 ### Verify After Deploy
 - [ ] Sign up a new test account → onboarding checklist should appear on dashboard
 - [ ] Dismiss checklist → should not reappear on refresh
 - [ ] Click a Pro-only block in the palette → upgrade modal should pop up (not redirect to /settings)
 - [ ] Verify free users can now create 5 blocks (was 3)
-- [ ] Monitor drip emails: check that cron sends activation nudge ~24hrs after a test signup
+- [ ] Monitor drip emails: check that cron sends activation nudge ~24hrs after a test signup (needs RESEND_API_KEY first)
 
 ---
 
