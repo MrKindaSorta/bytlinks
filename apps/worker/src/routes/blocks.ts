@@ -284,8 +284,12 @@ blockRoutes.put('/:id', async (c) => {
       values.push(body.is_visible ? 1 : 0);
     }
     if (body.column_span !== undefined) {
-      updates.push('column_span = ?');
-      values.push(body.column_span);
+      if (body.column_span === null) {
+        updates.push('column_span = NULL');
+      } else {
+        updates.push('column_span = ?');
+        values.push(body.column_span);
+      }
     }
 
     if (updates.length === 0) {
@@ -299,7 +303,8 @@ blockRoutes.put('/:id', async (c) => {
     ).bind(...values).run();
 
     return c.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error('Block update error:', err);
     return c.json({ success: false, error: 'Failed to update block' }, 500);
   }
 });

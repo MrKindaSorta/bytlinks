@@ -780,10 +780,11 @@ export function MyBytLink() {
 
       const elements: React.ReactNode[] = [];
 
-      // InsertionPoint before each section (except first) — separate grid item
-      if (index > 0) {
+      // InsertionPoint before each section (except first)
+      // In 2-col mode, skip interleaved InsertionPoints so blocks flow side-by-side
+      if (index > 0 && !editTwoColumn) {
         elements.push(
-          <div key={`insert-${entry}`} style={editTwoColumn ? { gridColumn: '1 / -1' } : undefined}>
+          <div key={`insert-${entry}`}>
             <InsertionPoint onClick={() => openBlockPalette(sectionIdx)} />
           </div>
         );
