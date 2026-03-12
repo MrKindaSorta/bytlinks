@@ -182,9 +182,8 @@ authed.post('/portal', async (c) => {
   }
 });
 
-billingRoutes.route('/', authed);
-
 // ── Webhook (no auth middleware — Stripe signs these) ──
+// MUST be registered before authed routes so auth middleware doesn't intercept it.
 
 /**
  * POST /api/billing/webhook — handle Stripe webhook events
@@ -274,6 +273,9 @@ billingRoutes.post('/webhook', async (c) => {
 
   return c.json({ received: true });
 });
+
+// Mount authenticated routes after webhook
+billingRoutes.route('/', authed);
 
 // ── Stripe webhook signature verification ──
 
