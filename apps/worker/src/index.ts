@@ -15,6 +15,7 @@ import { exportRoutes } from './routes/export';
 import { utilRoutes, eventRsvpRoutes } from './routes/utils';
 import { rolodexRoutes } from './routes/rolodex';
 import { seoRoutes } from './routes/seo';
+import { bytadminRoutes } from './routes/bytadmin';
 import { buildMetaTags, buildJsonLd } from './utils/injectMeta';
 import type { ProfileMetaData, SocialLink } from './utils/injectMeta';
 
@@ -70,6 +71,7 @@ app.route('/api/utils', utilRoutes);
 app.route('/api/event-rsvps', eventRsvpRoutes);
 app.route('/api/rolodex', rolodexRoutes);
 app.route('/api/seo', seoRoutes);
+app.route('/api/bytadmin', bytadminRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
@@ -82,6 +84,7 @@ Allow: /
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /api/
+Disallow: /bytadmin
 Sitemap: https://www.bytlinks.com/sitemap.xml`,
     {
       headers: {
@@ -175,7 +178,7 @@ ${userUrls}
 // Must be BEFORE the SPA fallback so crawlers get populated <head> tags.
 const RESERVED_PATHS = new Set([
   'login', 'signup', 'dashboard', 'settings', 'c', 'api', 'for',
-  'sitemap.xml', 'robots.txt', 'privacy', 'terms',
+  'sitemap.xml', 'robots.txt', 'privacy', 'terms', 'bytadmin',
 ]);
 
 app.get('/:username', async (c, next) => {
