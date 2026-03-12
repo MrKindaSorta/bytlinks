@@ -109,8 +109,12 @@ authed.post('/upgrade', async (c) => {
       return c.json({ success: true, data: { checkout_url: session.url } });
     }
 
+    // Log Stripe error but don't expose to client
+    const stripeErr = (session.error as Record<string, unknown>)?.message;
+    if (stripeErr) console.error('Stripe checkout error:', stripeErr);
     return c.json({ success: false, error: 'Failed to create checkout session' }, 500);
-  } catch {
+  } catch (err) {
+    console.error('Upgrade error:', err);
     return c.json({ success: false, error: 'Upgrade failed' }, 500);
   }
 });
