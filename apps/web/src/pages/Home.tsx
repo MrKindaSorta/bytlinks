@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { PageHead } from '../components/PageHead';
 
 import { Nav } from '../components/home/Nav';
@@ -16,6 +17,21 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-brand-bg overflow-x-hidden">
       <PageHead />
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          'name': 'BytLinks',
+          'applicationCategory': 'BusinessApplication',
+          'operatingSystem': 'Web',
+          'offers': {
+            '@type': 'Offer',
+            'price': '0',
+            'priceCurrency': 'USD',
+          },
+          'description': 'Professional link in bio and digital identity platform with business card, analytics, and contact rolodex.',
+        })}</script>
+      </Helmet>
       <Nav />
       <HeroSection />
       <ConceptBar />

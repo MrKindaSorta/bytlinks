@@ -10,6 +10,8 @@ const PublicPage = lazy(() => import('./pages/PublicPage'));
 const CardPage = lazy(() => import('./pages/CardPage'));
 const UseCasePage = lazy(() => import('./pages/UseCasePage'));
 const BytAdmin = lazy(() => import('./pages/BytAdmin'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 function Spinner() {
   return (
@@ -44,6 +46,8 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+        <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+        <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/bytadmin" element={<BytAdmin />} />
         <Route path="/for/:usecase" element={<UseCasePage />} />

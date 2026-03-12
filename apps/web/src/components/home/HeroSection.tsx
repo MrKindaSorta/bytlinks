@@ -15,17 +15,17 @@ const wordChild = {
 
 function AnimatedHeadline({ reduced }: { reduced: boolean }) {
   const lines = [
-    ['One', 'link.'],
-    ['Everything'],
-    ['people', 'need.'],
+    ['Your', 'professional'],
+    ['presence,'],
+    ['in', 'one', 'link.'],
   ];
 
   if (reduced) {
     return (
       <h1 className="font-display text-4xl sm:text-5xl lg:text-[4.25rem] font-900 tracking-[-0.04em] leading-[1.04] text-brand-text mb-5">
-        One link.<br />
-        Everything<br />
-        <em className="not-italic text-brand-accent">people need.</em>
+        Your professional<br />
+        presence,<br />
+        <em className="not-italic text-brand-accent">in one link.</em>
       </h1>
     );
   }
@@ -73,7 +73,7 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: EASE, delay: 0.1 }}
           >
-            Your link-in-bio, done right
+            The professional link-in-bio
           </motion.p>
 
           <AnimatedHeadline reduced={reduced} />
@@ -84,9 +84,9 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}
           >
-            Put one URL in your Instagram, TikTok, or email bio.
-            Visitors land on your personal page — your links, your content, your brand.
-            <span className="text-brand-text font-medium"> BytLinks makes that page actually beautiful.</span>
+            A link in bio that looks like you hired a designer.
+            Business card, portfolio, analytics — all in one URL.
+            <span className="text-brand-text font-medium"> Free forever, no credit card required.</span>
           </motion.p>
           <motion.p
             className="font-body text-sm text-brand-text-muted max-w-[380px] mb-8 leading-relaxed"
@@ -94,8 +94,8 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.4 }}
           >
-            Think of it as your homepage, without needing a website. Designers, creators,
-            freelancers, and brands use it to make a real first impression.
+            The professional alternative to Linktree. Freelancers, consultants, coaches, and creators
+            use it to make a real first impression — on every screen.
           </motion.p>
 
           <motion.div

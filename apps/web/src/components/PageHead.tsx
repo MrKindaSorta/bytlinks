@@ -9,7 +9,7 @@ interface PageHeadProps {
 export function PageHead({ title, description, noIndex }: PageHeadProps) {
   const fullTitle = title
     ? `${title} | BytLinks`
-    : 'BytLinks — Your link. Your brand. Your data.';
+    : 'BytLinks — Professional Link in Bio & Digital Identity';
 
   return (
     <Helmet>

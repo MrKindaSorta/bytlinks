@@ -87,6 +87,9 @@ export function AvatarLightbox({ src, alt }: AvatarLightboxProps) {
           alt={alt}
           className="w-full h-full object-cover"
           loading="eager"
+          fetchPriority="high"
+          width={96}
+          height={96}
         />
       </div>
 

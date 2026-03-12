@@ -5,6 +5,7 @@ import { useBlocks } from '../../hooks/useBlocks';
 import { useAuth } from '../../hooks/useAuth';
 import { BLOCK_TYPE_META, BLOCK_CATEGORIES, BLOCK_LIMITS } from '@bytlinks/shared/constants';
 import type { ContentBlockType, ContentBlockData } from '@bytlinks/shared';
+import { UpgradeModal } from '../shared/UpgradeModal';
 
 const DEFAULT_DATA: Record<ContentBlockType, ContentBlockData> = {
   'embed': { embed_type: 'youtube', embed_url: '' },
@@ -42,7 +43,7 @@ export function BlockPalette({ variant = 'panel', onClose, insertAtIndex, onBloc
   const { user } = useAuth();
   const [adding, setAdding] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [upsellBlock, setUpsellBlock] = useState<ContentBlockType | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const plan = user?.plan || 'free';
   const limits = BLOCK_LIMITS[plan as keyof typeof BLOCK_LIMITS] || BLOCK_LIMITS.free;
@@ -88,37 +89,10 @@ export function BlockPalette({ variant = 'panel', onClose, insertAtIndex, onBloc
     return limits.allowed_types.includes(blockType as typeof limits.allowed_types[number]);
   }
 
-  const upsellMeta = upsellBlock ? BLOCK_TYPE_META[upsellBlock] : null;
-
   const content = (
     <div className="space-y-5">
-      {/* Upsell overlay */}
-      {upsellBlock && upsellMeta && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-900/20 dark:border-amber-800 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Crown className="w-4 h-4 text-amber-500" />
-            <h3 className="font-display text-sm font-700 text-brand-text">{upsellMeta.label}</h3>
-          </div>
-          <p className="font-body text-xs text-brand-text-muted leading-relaxed">
-            The {upsellMeta.label} block is available on the Pro plan. Upgrade to unlock all 18 block types and up to 25 blocks per page.
-          </p>
-          <div className="flex items-center gap-2">
-            <a
-              href="/settings?tab=billing"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-body text-xs font-semibold
-                         bg-brand-accent text-white hover:opacity-90 transition-opacity duration-150"
-            >
-              <Crown className="w-3.5 h-3.5" />
-              Upgrade to Pro
-            </a>
-            <button
-              onClick={() => setUpsellBlock(null)}
-              className="px-3 py-2 rounded-lg font-body text-xs text-brand-text-muted hover:text-brand-text transition-colors duration-150"
-            >
-              Maybe later
-            </button>
-          </div>
-        </div>
+      {showUpgrade && (
+        <UpgradeModal onClose={() => setShowUpgrade(false)} trigger="block_palette" />
       )}
 
       {atLimit && (
@@ -143,7 +117,7 @@ export function BlockPalette({ variant = 'panel', onClose, insertAtIndex, onBloc
                 return (
                   <button
                     key={type}
-                    onClick={() => allowed ? handleAdd(type) : setUpsellBlock(type)}
+                    onClick={() => allowed ? handleAdd(type) : setShowUpgrade(true)}
                     disabled={atLimit && allowed || adding}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left font-body text-xs font-medium
                       transition-colors duration-150

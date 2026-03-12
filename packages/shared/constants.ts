@@ -190,7 +190,7 @@ export const MAX_EMBEDS = 5;
 /** Content block limits by plan */
 export const BLOCK_LIMITS = {
   free: {
-    max_blocks: 3,
+    max_blocks: 5,
     allowed_types: ['embed', 'rich-link', 'quote', 'faq', 'countdown', 'stats', 'event'] as const,
   },
   pro: {

@@ -3,6 +3,7 @@ import type { Env } from '../index';
 import { hashPassword, verifyPassword, createJwt, verifyJwt } from '../utils/crypto';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
 import { checkRateLimit } from '../utils/rateLimit';
+import { sendEmail, buildWelcomeEmail, buildPasswordResetEmail } from '../utils/email';
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
@@ -91,6 +92,14 @@ authRoutes.post('/register', async (c) => {
     );
 
     c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTIONS}`);
+
+    // Send welcome email (non-blocking — don't fail registration if email fails)
+    if (c.env.RESEND_API_KEY) {
+      const welcomeEmail = buildWelcomeEmail(username);
+      c.executionCtx.waitUntil(
+        sendEmail(c.env.RESEND_API_KEY, { to: email, ...welcomeEmail })
+      );
+    }
 
     return c.json({
       success: true,
@@ -196,6 +205,134 @@ authRoutes.get('/me', async (c) => {
       },
     },
   });
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Sends a password reset email with a time-limited token.
+ */
+authRoutes.post('/forgot-password', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit: 3 reset requests per IP per hour
+  const allowed = await checkRateLimit(c.env.DB, `reset:${ip}`, 3, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many reset attempts. Try again later.' }, 429);
+  }
+
+  const body = await c.req.json<{ email?: string }>();
+  const { email } = body;
+
+  if (!email || !EMAIL_RE.test(email)) {
+    return c.json({ success: false, error: 'Please enter a valid email address' }, 400);
+  }
+
+  // Always return success to prevent account enumeration
+  const successResponse = () =>
+    c.json({ success: true, message: 'If an account exists with that email, a reset link has been sent.' });
+
+  try {
+    const user = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE email = ?'
+    ).bind(email).first<{ id: string }>();
+
+    if (!user) return successResponse();
+
+    if (!c.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY not configured');
+      return successResponse();
+    }
+
+    // Generate a secure random token
+    const rawToken = crypto.randomUUID() + '-' + crypto.randomUUID();
+    const tokenHash = await hashToken(rawToken);
+    const tokenId = crypto.randomUUID();
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+
+    // Invalidate any existing unused tokens for this user
+    await c.env.DB.prepare(
+      'UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0'
+    ).bind(user.id).run();
+
+    // Store new token
+    await c.env.DB.prepare(
+      'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)'
+    ).bind(tokenId, user.id, tokenHash, expiresAt).run();
+
+    // Send reset email
+    const baseUrl = new URL(c.req.url).origin || 'https://www.bytlinks.com';
+    const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const resetEmail = buildPasswordResetEmail(resetUrl);
+    await sendEmail(c.env.RESEND_API_KEY, { to: email, ...resetEmail });
+
+    return successResponse();
+  } catch {
+    return successResponse();
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Validates token and sets a new password.
+ */
+authRoutes.post('/reset-password', async (c) => {
+  const body = await c.req.json<{ token?: string; password?: string }>();
+  const { token, password } = body;
+
+  if (!token || !password) {
+    return c.json({ success: false, error: 'Token and new password are required' }, 400);
+  }
+
+  if (password.length < 8) {
+    return c.json({ success: false, error: 'Password must be at least 8 characters' }, 400);
+  }
+
+  try {
+    const tokenHash = await hashToken(token);
+    const now = Math.floor(Date.now() / 1000);
+
+    const row = await c.env.DB.prepare(
+      'SELECT id, user_id FROM password_reset_tokens WHERE token_hash = ? AND used = 0 AND expires_at > ?'
+    ).bind(tokenHash, now).first<{ id: string; user_id: string }>();
+
+    if (!row) {
+      return c.json({ success: false, error: 'Invalid or expired reset link. Please request a new one.' }, 400);
+    }
+
+    const newHash = await hashPassword(password);
+
+    await c.env.DB.batch([
+      c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, row.user_id),
+      c.env.DB.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?').bind(row.id),
+    ]);
+
+    return c.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+  } catch {
+    return c.json({ success: false, error: 'Failed to reset password. Try again.' }, 500);
+  }
+});
+
+/** Hash a reset token using SHA-256 for storage (we never store the raw token). */
+async function hashToken(token: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(token));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * POST /api/auth/dismiss-onboarding
+ * Marks the onboarding checklist as dismissed.
+ */
+authRoutes.post('/dismiss-onboarding', authMiddleware, async (c) => {
+  const user = c.get('user');
+  try {
+    await c.env.DB.prepare(
+      'UPDATE users SET dismissed_onboarding = 1 WHERE id = ?'
+    ).bind(user.id).run();
+    return c.json({ success: true });
+  } catch {
+    return c.json({ success: false, error: 'Failed to dismiss' }, 500);
+  }
 });
 
 /**

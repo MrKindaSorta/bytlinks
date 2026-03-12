@@ -1,5 +1,6 @@
 import type { Theme, FontPair, AnimationSpeed } from '@bytlinks/shared';
 import { resolveFontPair } from './styleDefaults';
+import { loadThemeFonts } from './loadThemeFonts';
 
 const FONT_MAP: Record<FontPair, { display: string; body: string }> = {
   'mono-serif': { display: "'JetBrains Mono', monospace", body: "'Lora', serif" },
@@ -39,6 +40,8 @@ export function applyTheme(theme: Theme, element: HTMLElement): void {
       element.style.setProperty('--page-font-display', fonts.display);
       element.style.setProperty('--page-font-body', fonts.body);
     }
+    // Dynamically load the Google Fonts for this font pair
+    loadThemeFonts(resolved);
   }
 
   // Animation speed

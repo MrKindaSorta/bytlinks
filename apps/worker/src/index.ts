@@ -26,6 +26,10 @@ export type Env = {
   JWT_SECRET: string;
   ENVIRONMENT: string;
   ADMIN_SECRET: string;
+  RESEND_API_KEY?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRO_PRICE_ID?: string;
   SPOTIFY_CLIENT_ID?: string;
   SPOTIFY_CLIENT_SECRET?: string;
   YOUTUBE_API_KEY?: string;
@@ -160,6 +164,31 @@ app.get('/sitemap.xml', async (c) => {
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>${baseUrl}/for/photographers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/developers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/artists</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/real-estate</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/for/personal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
 ${userUrls}
 </urlset>`;
 
@@ -179,6 +208,7 @@ ${userUrls}
 const RESERVED_PATHS = new Set([
   'login', 'signup', 'dashboard', 'settings', 'c', 'api', 'for',
   'sitemap.xml', 'robots.txt', 'privacy', 'terms', 'bytadmin',
+  'forgot-password', 'reset-password',
 ]);
 
 app.get('/:username', async (c, next) => {
@@ -261,6 +291,11 @@ export default {
     // Housekeeping: purge expired rate limit entries
     try { await cleanupRateLimits(env.DB); } catch { /* non-critical */ }
 
+    // Drip emails
+    if (env.RESEND_API_KEY) {
+      try { await runDripEmails(env); } catch { /* non-critical */ }
+    }
+
     try {
       const blocks = await env.DB.prepare(
         "SELECT id, data FROM content_blocks WHERE block_type = 'stats'"
@@ -308,3 +343,97 @@ export default {
     }
   },
 };
+
+// ── Drip email processor ──
+async function runDripEmails(env: Env): Promise<void> {
+  const { sendEmail } = await import('./utils/email');
+  const { activationNudge, engagementNudge, upgradeDay7, upgradeDay14 } = await import('./emails/drip');
+
+  const now = Math.floor(Date.now() / 1000);
+  const DAY = 86400;
+  const apiKey = env.RESEND_API_KEY!;
+
+  // Helper: check if email already sent
+  async function alreadySent(userId: string, emailType: string): Promise<boolean> {
+    const row = await env.DB.prepare(
+      'SELECT id FROM email_sends WHERE user_id = ? AND email_type = ?'
+    ).bind(userId, emailType).first();
+    return !!row;
+  }
+
+  // Helper: record sent email
+  async function recordSent(userId: string, emailType: string): Promise<void> {
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO email_sends (id, user_id, email_type) VALUES (?, ?, ?)'
+    ).bind(crypto.randomUUID(), userId, emailType).run();
+  }
+
+  // 1. Activation nudge: 24hrs old, no avatar
+  const nudge1 = await env.DB.prepare(`
+    SELECT u.id, u.email FROM users u
+    JOIN bio_pages bp ON bp.user_id = u.id
+    WHERE u.created_at < ? AND u.created_at > ?
+    AND bp.avatar_r2_key IS NULL
+    LIMIT 50
+  `).bind(now - DAY, now - 2 * DAY).all<{ id: string; email: string }>();
+
+  for (const user of nudge1.results || []) {
+    if (await alreadySent(user.id, 'activation_nudge')) continue;
+    const email = activationNudge();
+    if (await sendEmail(apiKey, { to: user.email, ...email })) {
+      await recordSent(user.id, 'activation_nudge');
+    }
+  }
+
+  // 2. Engagement nudge: 72hrs old, < 3 links
+  const nudge2 = await env.DB.prepare(`
+    SELECT u.id, u.email FROM users u
+    JOIN bio_pages bp ON bp.user_id = u.id
+    WHERE u.created_at < ? AND u.created_at > ?
+    AND (SELECT COUNT(*) FROM links WHERE page_id = bp.id) < 3
+    LIMIT 50
+  `).bind(now - 3 * DAY, now - 4 * DAY).all<{ id: string; email: string }>();
+
+  for (const user of nudge2.results || []) {
+    if (await alreadySent(user.id, 'engagement_nudge')) continue;
+    const email = engagementNudge();
+    if (await sendEmail(apiKey, { to: user.email, ...email })) {
+      await recordSent(user.id, 'engagement_nudge');
+    }
+  }
+
+  // 3. Upgrade day 7: free plan, 7 days old
+  const nudge3 = await env.DB.prepare(`
+    SELECT u.id, u.email, bp.id as page_id FROM users u
+    JOIN bio_pages bp ON bp.user_id = u.id
+    WHERE u.plan = 'free' AND u.created_at < ? AND u.created_at > ?
+    LIMIT 50
+  `).bind(now - 7 * DAY, now - 8 * DAY).all<{ id: string; email: string; page_id: string }>();
+
+  for (const user of nudge3.results || []) {
+    if (await alreadySent(user.id, 'upgrade_day7')) continue;
+    // Get their view count for the past week
+    const views = await env.DB.prepare(
+      "SELECT COUNT(*) as cnt FROM analytics_events WHERE page_id = ? AND event_type = 'page_view' AND timestamp > ?"
+    ).bind(user.page_id, now - 7 * DAY).first<{ cnt: number }>();
+    const email = upgradeDay7(views?.cnt || 0);
+    if (await sendEmail(apiKey, { to: user.email, ...email })) {
+      await recordSent(user.id, 'upgrade_day7');
+    }
+  }
+
+  // 4. Upgrade day 14: free plan, 14 days old
+  const nudge4 = await env.DB.prepare(`
+    SELECT u.id, u.email FROM users u
+    WHERE u.plan = 'free' AND u.created_at < ? AND u.created_at > ?
+    LIMIT 50
+  `).bind(now - 14 * DAY, now - 15 * DAY).all<{ id: string; email: string }>();
+
+  for (const user of nudge4.results || []) {
+    if (await alreadySent(user.id, 'upgrade_day14')) continue;
+    const email = upgradeDay14();
+    if (await sendEmail(apiKey, { to: user.email, ...email })) {
+      await recordSent(user.id, 'upgrade_day14');
+    }
+  }
+}

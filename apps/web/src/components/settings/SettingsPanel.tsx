@@ -40,14 +40,31 @@ export function SettingsPanel() {
       const res = await fetch('/api/billing/upgrade', { method: 'POST' });
       const json = await res.json();
       if (json.success) {
+        if (json.data?.checkout_url) {
+          // Real Stripe — redirect to Checkout
+          window.location.href = json.data.checkout_url;
+          return;
+        }
+        // Mock mode fallback
         setBilling((prev) => prev ? { ...prev, plan: 'pro', plan_name: 'Pro', price: 9.99, has_payment_method: true } : prev);
-        // Reload to refresh JWT-based user state
         window.location.reload();
       }
     } catch {
       // Silent fail
     } finally {
       setUpgrading(false);
+    }
+  }
+
+  async function handleManageBilling() {
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const json = await res.json();
+      if (json.success && json.data?.portal_url) {
+        window.location.href = json.data.portal_url;
+      }
+    } catch {
+      // Silent fail
     }
   }
 
@@ -134,15 +151,24 @@ export function SettingsPanel() {
               </li>
             ))}
           </ul>
-          <button
-            onClick={handleDowngrade}
-            disabled={downgrading}
-            className="font-body text-xs font-medium text-brand-text-muted
-                       hover:text-brand-text transition-colors duration-fast
-                       disabled:opacity-50"
-          >
-            {downgrading ? 'Processing...' : 'Downgrade to Free'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleManageBilling}
+              className="font-body text-xs font-medium text-brand-accent
+                         hover:text-brand-accent-hover transition-colors duration-fast"
+            >
+              Manage subscription
+            </button>
+            <button
+              onClick={handleDowngrade}
+              disabled={downgrading}
+              className="font-body text-xs font-medium text-brand-text-muted
+                         hover:text-brand-text transition-colors duration-fast
+                         disabled:opacity-50"
+            >
+              {downgrading ? 'Processing...' : 'Downgrade to Free'}
+            </button>
+          </div>
         </section>
       ) : (
         <section className="rounded-xl border-2 border-brand-accent/30 bg-brand-surface p-6">
@@ -177,7 +203,7 @@ export function SettingsPanel() {
             {upgrading ? 'Processing...' : 'Upgrade now'}
           </button>
           <p className="font-body text-[11px] text-brand-text-muted text-center mt-3">
-            This is a demo. No real payment is processed.
+            Cancel anytime. Secure payment via Stripe.
           </p>
         </section>
       )}

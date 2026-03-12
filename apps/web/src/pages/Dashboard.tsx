@@ -11,6 +11,7 @@ import { MyBytLink } from '../components/editor/MyBytLink';
 import { TemplatePicker } from '../components/templates/TemplatePicker';
 import { ManageSection } from '../components/manage/ManageSection';
 import { BusinessCardHub } from '../components/businesscard/BusinessCardHub';
+import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
 import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
 type DashboardTab = 'mybytlink' | 'card' | 'analytics' | 'settings' | 'manage';
@@ -128,6 +129,9 @@ export default function Dashboard() {
         {/* Main content area — scrolls independently */}
         {activeTab === 'mybytlink' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">
+            <div className="px-4 pt-4 lg:px-6 lg:pt-6">
+              <OnboardingChecklist onNavigate={(tab) => setActiveTab(tab as DashboardTab)} />
+            </div>
             <MyBytLink />
           </main>
         ) : activeTab === 'card' ? (

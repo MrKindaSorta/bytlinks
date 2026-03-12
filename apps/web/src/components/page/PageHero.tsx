@@ -28,7 +28,7 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
         className="w-24 h-24 rounded-full mb-4 overflow-hidden"
         style={{ background: 'var(--page-surface-alt, rgba(128,128,128,0.1))' }}
       >
-        <img src={avatarUrl} alt={page.display_name || username} className="w-full h-full object-cover" />
+        <img src={avatarUrl} alt={page.display_name || username} className="w-full h-full object-cover" fetchPriority="high" width={96} height={96} />
       </div>
     ) : (
       <AvatarLightbox
