@@ -143,10 +143,14 @@ export function MyBytLink() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Desktop detection for 2-column edit mode (must be before early return)
+  const isDesktop = useIsDesktop(1024);
+
   // Preview mode: apply theme to mobile phone frame (must be before early return)
   const pageTheme = page?.theme ?? null;
   useEffect(() => {
-    if (!previewMode || previewDevice !== 'mobile' || !mobileFrameRef.current || !pageTheme) return;
+    const showMobile = !isDesktop || previewDevice === 'mobile';
+    if (!previewMode || !showMobile || !mobileFrameRef.current || !pageTheme) return;
     applyTheme(pageTheme, mobileFrameRef.current);
     if (pageTheme.colorMode === 'custom-simple' && pageTheme.customColors) {
       const palette = deriveFullPalette(pageTheme.customColors.primary, pageTheme.customColors.accent, pageTheme.customColors.text);
@@ -158,10 +162,7 @@ export function MyBytLink() {
         applyDerivedPalette(palette, mobileFrameRef.current);
       }
     }
-  }, [previewMode, previewDevice, pageTheme]);
-
-  // Desktop detection for 2-column edit mode (must be before early return)
-  const isDesktop = useIsDesktop(1024);
+  }, [previewMode, previewDevice, pageTheme, isDesktop]);
 
   // Click-outside-to-deselect: clears selection when tapping empty areas
   useEffect(() => {
@@ -1205,9 +1206,9 @@ export function MyBytLink() {
       <PageShell theme={theme}>
         {renderToolbar()}
         <div data-preview>
-          {previewDevice === 'desktop'
-            ? renderDesktopPreview()
-            : renderMobilePreview()
+          {!isDesktop || previewDevice === 'mobile'
+            ? renderMobilePreview()
+            : renderDesktopPreview()
           }
         </div>
       </PageShell>
@@ -1257,7 +1258,7 @@ export function MyBytLink() {
           </div>
         ) : (
           /* Single-column edit mode (mobile / 2-col off) */
-          <div className={`${resolveContainerWidth(theme)} mx-auto px-5 py-10 pb-24`} data-preview>
+          <div className={`${isDesktop ? resolveContainerWidth(theme) : 'max-w-lg'} mx-auto px-5 py-10 pb-24 overflow-x-hidden`} data-preview>
             {renderEditableHero()}
             {renderFlatContent()}
           </div>
