@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { ChevronDown, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { PageHead } from '../components/PageHead';
 import type { BioPage, Link as LinkType, SocialLink, EmbedBlock, ContentBlock, ContentBlockType, Theme, AffiliationBadgeData, TeamMemberData } from '@bytlinks/shared';
 import { resolveBlockColumnSpan } from '@bytlinks/shared/constants';
@@ -66,6 +67,7 @@ function isFullWidthEntry(entry: string, blockMap: Map<string, ContentBlock>): b
 
 export default function PublicPage() {
   const { username } = useParams<{ username: string }>();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<PageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -397,6 +399,17 @@ export default function PublicPage() {
   return (
     <PageShell theme={theme}>
       <PageHead title={pageTitle} description={pageDesc || undefined} />
+      {isAuthenticated && !authLoading && (
+        <Link
+          to="/dashboard"
+          className="fixed top-4 left-4 z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
+                     bg-black/60 text-white backdrop-blur-md shadow-lg
+                     hover:bg-black/75 transition-all duration-200"
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" />
+          Dashboard
+        </Link>
+      )}
       <div ref={pageRef}>
         <div className="lg:hidden">
           {renderMobile()}

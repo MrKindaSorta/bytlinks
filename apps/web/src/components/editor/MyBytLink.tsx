@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
@@ -78,6 +79,7 @@ import type { ThemeColorContext } from '../builder/LinkOverrideEditor';
 export function MyBytLink() {
   const { page, updatePage } = usePage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { links, editLink, deleteLink, saveOrder } = useLinks();
   const { blocks, editBlock, duplicateBlock, deleteBlock } = useBlocks();
   const embeds = usePageStore((s) => s.embeds);
@@ -1109,7 +1111,13 @@ export function MyBytLink() {
             Edit
           </button>
           <button
-            onClick={() => setPreviewMode(true)}
+            onClick={() => {
+              if (!isDesktop && p?.username) {
+                navigate(`/${p.username}`);
+              } else {
+                setPreviewMode(true);
+              }
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-all duration-200"
             style={{
               background: previewMode ? 'var(--page-surface, #fff)' : 'transparent',
