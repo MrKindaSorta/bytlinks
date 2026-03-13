@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../index';
 import { authMiddleware, type AuthUser } from '../middleware/auth';
 import { createJwt } from '../utils/crypto';
+import { COOKIE_OPTIONS } from './auth';
 
 export const billingRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
@@ -11,7 +12,6 @@ const PLANS = {
 } as const;
 
 const STRIPE_API = 'https://api.stripe.com/v1';
-const COOKIE_OPTS = 'HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800';
 
 /** Helper to call Stripe REST API from Workers (no Node SDK needed). */
 async function stripeRequest(
@@ -77,8 +77,17 @@ authed.post('/upgrade', async (c) => {
   try {
     // Get or create Stripe customer
     let row = await c.env.DB.prepare(
-      'SELECT stripe_customer_id FROM users WHERE id = ?'
-    ).bind(user.id).first<{ stripe_customer_id: string | null }>();
+      'SELECT plan, stripe_customer_id, stripe_subscription_id FROM users WHERE id = ?'
+    ).bind(user.id).first<{ plan: string; stripe_customer_id: string | null; stripe_subscription_id: string | null }>();
+
+    // Prevent duplicate subscriptions — if user is already Pro with an active
+    // subscription, don't create another Stripe checkout session.
+    if (row?.plan === 'pro' && row?.stripe_subscription_id) {
+      return c.json({
+        success: false,
+        error: 'You already have an active Pro subscription. Refresh the page to see your Pro features.',
+      }, 400);
+    }
 
     let customerId = row?.stripe_customer_id;
 
@@ -338,7 +347,7 @@ async function mockUpgrade(c: { env: Env; get: (k: string) => AuthUser; header: 
       { sub: user.id, email: user.email, plan: 'pro' },
       c.env.JWT_SECRET,
     );
-    c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTS}`);
+    c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTIONS}`);
 
     return c.json({ success: true, data: { plan: 'pro', mock: true } });
   } catch {
@@ -361,7 +370,7 @@ async function mockDowngrade(c: { env: Env; get: (k: string) => AuthUser; header
       { sub: user.id, email: user.email, plan: 'free' },
       c.env.JWT_SECRET,
     );
-    c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTS}`);
+    c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTIONS}`);
 
     return c.json({ success: true, data: { plan: 'free', mock: true } });
   } catch {

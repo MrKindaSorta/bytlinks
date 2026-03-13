@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   plan TEXT DEFAULT 'free',
   stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
   verified INTEGER DEFAULT 0,
   verified_at INTEGER DEFAULT NULL,
   created_at INTEGER DEFAULT (unixepoch())

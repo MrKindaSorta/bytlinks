@@ -7,7 +7,7 @@ import { sendEmail, buildWelcomeEmail, buildPasswordResetEmail } from '../utils/
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
 
-const COOKIE_OPTIONS = 'HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800';
+export const COOKIE_OPTIONS = 'HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -171,7 +171,9 @@ authRoutes.post('/logout', async (c) => {
 
 /**
  * GET /api/auth/me
- * Returns the current user from the JWT cookie (no DB hit).
+ * Returns the current user. Plan is always read from the database (source of
+ * truth) so that Stripe webhook updates are reflected immediately. If the JWT
+ * contains a stale plan value, a fresh JWT cookie is issued automatically.
  */
 authRoutes.get('/me', async (c) => {
   const cookieHeader = c.req.header('cookie');
@@ -189,10 +191,25 @@ authRoutes.get('/me', async (c) => {
     return c.json({ success: false, error: 'Invalid or expired token' }, 401);
   }
 
-  // Look up verified status from DB
   const dbUser = await c.env.DB.prepare(
-    'SELECT verified FROM users WHERE id = ?'
-  ).bind(payload.sub).first<{ verified: number }>();
+    'SELECT plan, verified FROM users WHERE id = ?'
+  ).bind(payload.sub).first<{ plan: string; verified: number }>();
+
+  if (!dbUser) {
+    return c.json({ success: false, error: 'User not found' }, 404);
+  }
+
+  const plan = dbUser.plan || 'free';
+
+  // Auto-heal stale JWT: if the DB plan differs (e.g. Stripe webhook upgraded
+  // the user while the old JWT was still in the cookie), reissue immediately.
+  if (plan !== payload.plan) {
+    const token = await createJwt(
+      { sub: payload.sub, email: payload.email, plan },
+      c.env.JWT_SECRET,
+    );
+    c.header('Set-Cookie', `token=${token}; ${COOKIE_OPTIONS}`);
+  }
 
   return c.json({
     success: true,
@@ -200,8 +217,8 @@ authRoutes.get('/me', async (c) => {
       user: {
         id: payload.sub,
         email: payload.email,
-        plan: payload.plan,
-        verified: !!(dbUser?.verified),
+        plan,
+        verified: !!dbUser.verified,
       },
     },
   });

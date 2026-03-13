@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard } from 'lucide-react';
+import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard, Crown, X } from 'lucide-react';
 import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
@@ -26,11 +26,31 @@ const TAB_ICONS = {
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('mybytlink');
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { page, updatePage } = usePage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const showTemplates = searchParams.get('showTemplates') === 'true';
+  const [upgradeBanner, setUpgradeBanner] = useState(false);
+  const upgradeHandled = useRef(false);
+
+  // Detect post-Stripe redirect and refresh auth to pick up Pro status
+  useEffect(() => {
+    if (upgradeHandled.current) return;
+    const upgraded = searchParams.get('upgraded');
+    if (upgraded === '1') {
+      upgradeHandled.current = true;
+      setSearchParams({}, { replace: true });
+      refreshUser().then((u) => {
+        if (u?.plan === 'pro') {
+          setUpgradeBanner(true);
+        }
+      });
+    } else if (upgraded === '0') {
+      upgradeHandled.current = true;
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refreshUser]);
 
   function handleTemplateApply(template: ProfileTemplate) {
     if (!page) return;
@@ -59,6 +79,23 @@ export default function Dashboard() {
   return (
     <div className="h-screen bg-brand-bg overflow-hidden">
       <PageHead title="Dashboard" noIndex />
+
+      {/* Pro upgrade success banner */}
+      {upgradeBanner && (
+        <div className="fixed top-0 left-0 right-0 z-[70] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg">
+          <Crown className="w-5 h-5 shrink-0" />
+          <span className="font-body text-sm font-semibold">
+            Welcome to Pro! All premium features are now unlocked.
+          </span>
+          <button
+            onClick={() => setUpgradeBanner(false)}
+            className="ml-2 p-1 rounded hover:bg-white/20 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {showTemplates && (
         <TemplatePicker
           fullscreen
