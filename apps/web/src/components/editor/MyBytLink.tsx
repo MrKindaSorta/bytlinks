@@ -40,6 +40,7 @@ import { PageLinks } from '../page/PageLinks';
 import { PageHero } from '../page/PageHero';
 import { PageEmbeds } from '../page/PageEmbeds';
 import { PageBadge } from '../page/PageBadge';
+import { PageContactInfo } from '../page/PageContactInfo';
 import { AnimatedBackground } from '../page/AnimatedBackground';
 import { blockRendererRegistry } from '../page/blocks/blockRendererRegistry';
 import { blockEditorRegistry } from '../builder/blocks/blockEditorRegistry';
@@ -76,6 +77,7 @@ import type { ThemeColorContext } from '../builder/LinkOverrideEditor';
 
 export function MyBytLink() {
   const { page, updatePage } = usePage();
+  const { user } = useAuth();
   const { links, editLink, deleteLink, saveOrder } = useLinks();
   const { blocks, editBlock, duplicateBlock, deleteBlock } = useBlocks();
   const embeds = usePageStore((s) => s.embeds);
@@ -916,6 +918,7 @@ export function MyBytLink() {
     const desktopIsLeft = desktopLayout === 'left-photo';
 
     const heroNode = <PageHero page={p} username={p.username} layoutVariant={desktopLayout} />;
+    const contactNode = <PageContactInfo page={p} layoutVariant={desktopLayout} isPreview userEmail={user?.email} />;
     const socialsNode = socialLinks.length > 0
       ? <PageSocials socialLinks={socialLinks} layoutVariant={desktopLayout} />
       : null;
@@ -927,6 +930,7 @@ export function MyBytLink() {
         <div className="grid grid-cols-[7fr_13fr] gap-12 items-start">
           <div className={`sticky top-16 self-start ${desktopIsLeft ? 'order-1' : 'order-2'}`}>
             {heroSide}
+            {contactNode}
             {socialsNode}
           </div>
           <main className={desktopIsLeft ? 'order-2' : 'order-1'}>
@@ -939,7 +943,7 @@ export function MyBytLink() {
     const sidebarLayout = (heroSide: React.ReactNode, contentSide: React.ReactNode) => (
       <div className="max-w-6xl mx-auto px-5 py-16">
         <div className="grid grid-cols-[280px_1fr] gap-12 items-start">
-          <aside className="sticky top-16 self-start">{heroSide}{socialsNode}</aside>
+          <aside className="sticky top-16 self-start">{heroSide}{contactNode}{socialsNode}</aside>
           <main>{contentSide}</main>
         </div>
       </div>
@@ -970,6 +974,7 @@ export function MyBytLink() {
         <>
           <div className="min-h-[85vh] flex flex-col justify-center">
             {heroNode}
+            {contactNode}
             {socialsNode}
             {scrollIndicator}
           </div>
@@ -988,6 +993,7 @@ export function MyBytLink() {
     return centeredWrap(
       <>
         {heroNode}
+        {contactNode}
         {socialsNode}
         <div>{contentNode}{badge}</div>
       </>
@@ -1045,6 +1051,7 @@ export function MyBytLink() {
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                   <div className="px-5 py-8">
                     <PageHero page={p} username={p.username} layoutVariant={layout} disableLightbox />
+                    <PageContactInfo page={p} layoutVariant={layout} isPreview userEmail={user?.email} />
                     {socialLinks.length > 0 && (
                       <PageSocials socialLinks={socialLinks} layoutVariant={layout} />
                     )}

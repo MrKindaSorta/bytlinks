@@ -9,6 +9,7 @@ import { PageHero } from '../components/page/PageHero';
 import { PageLinks } from '../components/page/PageLinks';
 import { PageEmbeds } from '../components/page/PageEmbeds';
 import { PageSocials } from '../components/page/PageSocials';
+import { PageContactInfo } from '../components/page/PageContactInfo';
 import { PageBadge } from '../components/page/PageBadge';
 import { SectionsRenderer } from '../components/page/SectionsRenderer';
 import { CardsRenderer } from '../components/page/CardsRenderer';
@@ -147,6 +148,9 @@ export default function PublicPage() {
   const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} verified={data.verified} />;
   const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} verified={data.verified} />;
 
+  const mobileContact = <PageContactInfo page={page} layoutVariant={mobileLayout} />;
+  const desktopContact = <PageContactInfo page={page} layoutVariant={desktopLayout} />;
+
   const desktopIsSidebar = desktopLayout === 'sidebar';
   const desktopIsSplit = desktopLayout === 'left-photo' || desktopLayout === 'right-photo';
   const desktopIsLeft = desktopLayout === 'left-photo';
@@ -236,6 +240,7 @@ export default function PublicPage() {
         <>
           <div className="min-h-[85vh] flex flex-col justify-center">
             {mobileHero}
+            {mobileContact}
             {mobileSocials}
             <ScrollIndicator />
           </div>
@@ -248,6 +253,7 @@ export default function PublicPage() {
       return wrap(
         <>
           {mobileHero}
+          {mobileContact}
           {mobileSocials}
           {renderGroupedContent()}
         </>,
@@ -258,6 +264,7 @@ export default function PublicPage() {
       return wrap(
         <>
           {mobileHero}
+          {mobileContact}
           {mobileSocials}
           {renderCardsContent()}
         </>,
@@ -268,6 +275,7 @@ export default function PublicPage() {
     return wrap(
       <>
         {mobileHero}
+        {mobileContact}
         {mobileSocials}
         {renderFlatSections(false)}
       </>,
@@ -282,6 +290,7 @@ export default function PublicPage() {
         <div className="grid grid-cols-[7fr_13fr] gap-12 items-start">
           <div className={`sticky top-16 self-start ${desktopIsLeft ? 'order-1' : 'order-2'}`}>
             {heroNode}
+            {desktopContact}
             {desktopSocials}
           </div>
           <main className={desktopIsLeft ? 'order-2' : 'order-1'}>
@@ -294,7 +303,7 @@ export default function PublicPage() {
     const sidebarLayout = (heroNode: React.ReactNode, contentNode: React.ReactNode) => (
       <div className="max-w-6xl mx-auto px-5 py-16">
         <div className="grid grid-cols-[280px_1fr] gap-12 items-start">
-          <aside className="sticky top-16 self-start">{heroNode}{desktopSocials}</aside>
+          <aside className="sticky top-16 self-start">{heroNode}{desktopContact}{desktopSocials}</aside>
           <main>{contentNode}</main>
         </div>
       </div>
@@ -317,6 +326,7 @@ export default function PublicPage() {
         <>
           <div className="min-h-[85vh] flex flex-col justify-center">
             {desktopHero}
+            {desktopContact}
             {desktopSocials}
             <ScrollIndicator />
           </div>
@@ -336,6 +346,7 @@ export default function PublicPage() {
       return centeredWrap(
         <>
           {desktopHero}
+          {desktopContact}
           {desktopSocials}
           <div>{renderGroupedContent()}</div>
         </>,
@@ -353,6 +364,7 @@ export default function PublicPage() {
       return centeredWrap(
         <>
           {desktopHero}
+          {desktopContact}
           {desktopSocials}
           <div>{renderCardsContent()}</div>
         </>,
@@ -369,6 +381,7 @@ export default function PublicPage() {
     return centeredWrap(
       <>
         {desktopHero}
+        {desktopContact}
         {desktopSocials}
         <div>{renderFlatSections(twoColumn)}</div>
       </>,
