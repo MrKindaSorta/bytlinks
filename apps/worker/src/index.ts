@@ -17,6 +17,7 @@ import { rolodexRoutes } from './routes/rolodex';
 import { seoRoutes } from './routes/seo';
 import { bytadminRoutes } from './routes/bytadmin';
 import { formRoutes } from './routes/forms';
+import { affiliationsRoutes } from './routes/affiliations';
 import { buildMetaTags, buildJsonLd } from './utils/injectMeta';
 import type { ProfileMetaData, SocialLink } from './utils/injectMeta';
 
@@ -79,6 +80,7 @@ app.route('/api/rolodex', rolodexRoutes);
 app.route('/api/seo', seoRoutes);
 app.route('/api/bytadmin', bytadminRoutes);
 app.route('/api/forms', formRoutes);
+app.route('/api/affiliations', affiliationsRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));
@@ -211,7 +213,7 @@ ${userUrls}
 const RESERVED_PATHS = new Set([
   'login', 'signup', 'dashboard', 'settings', 'c', 'api', 'for',
   'sitemap.xml', 'robots.txt', 'privacy', 'terms', 'bytadmin',
-  'forgot-password', 'reset-password',
+  'forgot-password', 'reset-password', 'join',
 ]);
 
 app.get('/:username', async (c, next) => {

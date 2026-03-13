@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, BadgeCheck } from 'lucide-react';
-import type { BioPage, LayoutVariant } from '@bytlinks/shared';
+import type { BioPage, LayoutVariant, AffiliationBadgeData } from '@bytlinks/shared';
 import { AvatarLightbox } from './AvatarLightbox';
+import { AffiliationBadge } from './AffiliationBadge';
 
 interface PageHeroProps {
   page: BioPage;
@@ -11,13 +12,15 @@ interface PageHeroProps {
   disableLightbox?: boolean;
   /** Show verified badge next to display name */
   verified?: boolean;
+  /** Active affiliations to show as badges below the name. */
+  affiliations?: AffiliationBadgeData[];
 }
 
 /**
  * Avatar + display name + bio + about me.
  * Social icons are rendered directly below the hero.
  */
-export function PageHero({ page, username, layoutVariant = 'centered', disableLightbox, verified }: PageHeroProps) {
+export function PageHero({ page, username, layoutVariant = 'centered', disableLightbox, verified, affiliations }: PageHeroProps) {
   const avatarUrl = page.avatar_r2_key
     ? `/api/public/avatar/${page.avatar_r2_key}`
     : null;
@@ -76,12 +79,21 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
     <AboutMeSection text={page.about_me} centered={layoutVariant === 'centered'} defaultExpanded={!!page.about_me_expanded} />
   ) : null;
 
+  const affiliationBadges = affiliations && affiliations.length > 0 ? (
+    <div className={`flex flex-wrap gap-1.5 mb-3 ${layoutVariant === 'centered' ? 'justify-center' : ''}`}>
+      {affiliations.map((a) => (
+        <AffiliationBadge key={a.id} {...a} />
+      ))}
+    </div>
+  ) : null;
+
   // Centered layout
   if (layoutVariant === 'centered') {
     return (
       <div className="text-center">
         <div className="mx-auto w-fit">{avatar}</div>
         {nameBlock}
+        {affiliationBadges}
         {bioBlock}
         {aboutBlock}
       </div>
@@ -94,6 +106,7 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
       <div>
         {avatar}
         {nameBlock}
+        {affiliationBadges}
         {bioBlock}
         {aboutBlock}
       </div>
@@ -109,6 +122,7 @@ export function PageHero({ page, username, layoutVariant = 'centered', disableLi
         <div className="shrink-0">{avatar}</div>
         <div className={`text-left ${!isLeft ? 'text-right' : ''} flex-1 min-w-0 pt-2`}>
           {nameBlock}
+          {affiliationBadges}
           {bioBlock}
           {aboutBlock}
         </div>

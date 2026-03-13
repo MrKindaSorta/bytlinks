@@ -130,6 +130,45 @@ export function buildFormSubmissionEmail(
   };
 }
 
+/** Build the affiliation join request notification email. */
+export function buildAffiliationRequestEmail(
+  requesterName: string,
+  roleLabel: string,
+  businessName: string,
+): { subject: string; html: string; text: string } {
+  const dashboardUrl = 'https://www.bytlinks.com/dashboard?tab=affiliations';
+
+  return {
+    subject: 'Someone wants to join your team on BytLinks',
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+    <div style="padding:32px 28px 0">
+      <h1 style="font-size:22px;font-weight:800;color:#111;margin:0 0 8px">New team request</h1>
+      <p style="font-size:14px;color:#6b7280;line-height:1.6;margin:0 0 24px">
+        <strong style="color:#111">${escapeHtml(requesterName)}</strong> wants to join
+        <strong style="color:#111">${escapeHtml(businessName)}</strong> as
+        <strong style="color:#111">${escapeHtml(roleLabel)}</strong>.
+      </p>
+      <a href="${dashboardUrl}" style="display:block;background:#111;color:#fff;text-decoration:none;text-align:center;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px">
+        Review in your dashboard
+      </a>
+    </div>
+    <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb">
+      <p style="font-size:11px;color:#9ca3af;margin:0;text-align:center">
+        BytLinks — Your professional presence, in one link.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+    text: `New team request\n\n${requesterName} wants to join ${businessName} as ${roleLabel}.\n\nReview in your dashboard: ${dashboardUrl}`,
+  };
+}
+
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

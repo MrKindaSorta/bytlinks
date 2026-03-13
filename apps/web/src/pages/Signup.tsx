@@ -13,6 +13,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const joinToken = searchParams.get('joinToken');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,7 +22,11 @@ export default function Signup() {
 
     try {
       await signup(email, password, username);
-      navigate('/dashboard?showTemplates=true');
+      if (joinToken) {
+        navigate(`/dashboard?tab=affiliations&joinToken=${joinToken}&showTemplates=true`);
+      } else {
+        navigate('/dashboard?showTemplates=true');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
     } finally {
@@ -131,7 +136,7 @@ export default function Signup() {
 
         <p className="font-body text-sm text-brand-text-secondary text-center mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-brand-accent font-medium hover:text-brand-accent-hover transition-colors duration-fast">
+          <Link to={joinToken ? `/login?joinToken=${joinToken}` : '/login'} className="text-brand-accent font-medium hover:text-brand-accent-hover transition-colors duration-fast">
             Log in
           </Link>
         </p>

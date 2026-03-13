@@ -837,6 +837,60 @@ export interface ProfileTemplate {
   theme: Partial<Theme>;
 }
 
+// ── Affiliations ──
+
+export type AffiliationStatus = 'pending' | 'active' | 'rejected';
+
+export interface PageAffiliation {
+  id: string;
+  businessPageId: string;
+  memberPageId: string;
+  roleLabel: string;
+  status: AffiliationStatus;
+  showOnBusinessPage: boolean;
+  showOnMemberPage: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AffiliationBadgeData {
+  id: string;
+  businessUsername: string;
+  businessName: string;
+  businessAvatarKey: string | null;
+  roleLabel: string;
+}
+
+export interface TeamMemberData {
+  id: string;
+  memberUsername: string;
+  memberName: string;
+  memberAvatarKey: string | null;
+  roleLabel: string;
+  memberJobTitle: string | null;
+}
+
+export interface AffiliationInvite {
+  id: string;
+  businessPageId: string;
+  code: string;
+  maxUses: number | null;
+  useCount: number;
+  expiresAt: number | null;
+  isActive: boolean;
+  createdAt: number;
+}
+
+export interface AffiliationMember {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarKey: string | null;
+  roleLabel: string;
+  status: AffiliationStatus;
+  createdAt: number;
+}
+
 /** API response wrapper */
 export interface ApiResponse<T = unknown> {
   success: boolean;

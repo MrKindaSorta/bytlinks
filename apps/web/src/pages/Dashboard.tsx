@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { usePage } from '../hooks/usePage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard, Crown, X } from 'lucide-react';
+import { BarChart3, Settings, ExternalLink, LayoutDashboard, Layers, CreditCard, Crown, X, Users } from 'lucide-react';
+import { AffiliationsPanel } from '../components/affiliations/AffiliationsPanel';
 import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 import { AnalyticsDashboard } from '../components/analytics/AnalyticsDashboard';
@@ -14,7 +15,7 @@ import { BusinessCardHub } from '../components/businesscard/BusinessCardHub';
 import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
 import type { ProfileTemplate, Theme } from '@bytlinks/shared';
 
-type DashboardTab = 'mybytlink' | 'card' | 'analytics' | 'settings' | 'manage';
+type DashboardTab = 'mybytlink' | 'card' | 'analytics' | 'settings' | 'manage' | 'affiliations';
 
 const TAB_ICONS = {
   mybytlink: LayoutDashboard,
@@ -22,6 +23,7 @@ const TAB_ICONS = {
   analytics: BarChart3,
   settings: Settings,
   manage: Layers,
+  affiliations: Users,
 } as const;
 
 export default function Dashboard() {
@@ -33,6 +35,16 @@ export default function Dashboard() {
   const showTemplates = searchParams.get('showTemplates') === 'true';
   const [upgradeBanner, setUpgradeBanner] = useState(false);
   const upgradeHandled = useRef(false);
+
+  // Handle ?tab= search param to navigate to a specific tab on load
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tabs.some((t) => t.key === tab)) {
+      setActiveTab(tab as DashboardTab);
+      // Don't clear tab param — AffiliationsPanel reads joinToken from the same searchParams
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Detect post-Stripe redirect and refresh auth to pick up Pro status
   useEffect(() => {
@@ -74,6 +86,7 @@ export default function Dashboard() {
     { key: 'analytics', label: 'Analytics' },
     { key: 'settings', label: 'Settings' },
     { key: 'manage', label: 'Manage' },
+    { key: 'affiliations', label: 'Affiliations', mobileLabel: 'Team' },
   ];
 
   return (
@@ -178,6 +191,10 @@ export default function Dashboard() {
         ) : activeTab === 'manage' ? (
           <main className="overflow-y-auto pb-20 lg:pb-0">
             <ManageSection />
+          </main>
+        ) : activeTab === 'affiliations' ? (
+          <main className="overflow-y-auto pb-20 lg:pb-0">
+            <AffiliationsPanel />
           </main>
         ) : (
           <main className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10 overflow-y-auto">

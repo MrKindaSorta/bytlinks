@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { PageHead } from '../components/PageHead';
 import logoSrc from '../logo/BytLinks.png';
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const joinToken = searchParams.get('joinToken');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +21,11 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      if (joinToken) {
+        navigate(`/dashboard?tab=affiliations&joinToken=${joinToken}`);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
     } finally {
@@ -109,7 +115,7 @@ export default function Login() {
 
         <p className="font-body text-sm text-brand-text-secondary text-center mt-6">
           No account yet?{' '}
-          <Link to="/signup" className="text-brand-accent font-medium hover:text-brand-accent-hover transition-colors duration-fast">
+          <Link to={joinToken ? `/signup?joinToken=${joinToken}` : '/signup'} className="text-brand-accent font-medium hover:text-brand-accent-hover transition-colors duration-fast">
             Sign up free
           </Link>
         </p>

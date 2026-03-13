@@ -787,7 +787,8 @@ publicRoutes.get('/:username', async (c) => {
 
     const now = Math.floor(Date.now() / 1000);
 
-    const [links, socialLinks, embeds, blocks, owner] = await Promise.all([
+    // 8 parallel queries: links, socials, embeds, blocks, owner, affiliations-as-member, affiliations-as-business
+    const [links, socialLinks, embeds, blocks, owner, affiliationsAsMember, affiliationsAsBusiness] = await Promise.all([
       c.env.DB.prepare(
         `SELECT * FROM links WHERE page_id = ? AND is_visible = 1
          AND (published_at IS NULL OR published_at <= ?)
@@ -806,6 +807,29 @@ publicRoutes.get('/:username', async (c) => {
       c.env.DB.prepare(
         'SELECT verified, email FROM users WHERE id = ?'
       ).bind(page.user_id).first<{ verified: number; email: string }>(),
+      // Active affiliations where this page is the MEMBER (for badge rendering)
+      c.env.DB.prepare(
+        `SELECT pa.id, pa.role_label, pa.show_on_member_page,
+                bp.username AS business_username,
+                bp.display_name AS business_name,
+                bp.avatar_r2_key AS business_avatar_key
+         FROM page_affiliations pa
+         JOIN bio_pages bp ON bp.id = pa.business_page_id
+         WHERE pa.member_page_id = ? AND pa.status = 'active' AND pa.show_on_member_page = 1
+         ORDER BY pa.created_at ASC`
+      ).bind(page.id).all(),
+      // Active affiliations where this page is the BUSINESS (for team section)
+      c.env.DB.prepare(
+        `SELECT pa.id, pa.role_label,
+                bp.username AS member_username,
+                bp.display_name AS member_name,
+                bp.avatar_r2_key AS member_avatar_key,
+                bp.job_title AS member_job_title
+         FROM page_affiliations pa
+         JOIN bio_pages bp ON bp.id = pa.member_page_id
+         WHERE pa.business_page_id = ? AND pa.status = 'active' AND pa.show_on_business_page = 1
+         ORDER BY pa.created_at ASC`
+      ).bind(page.id).all(),
     ]);
 
     const sectionOrder = page.section_order
@@ -852,6 +876,23 @@ publicRoutes.get('/:username', async (c) => {
             }
             return true;
           }),
+        affiliations: (affiliationsAsMember.results || []).map((r: Record<string, unknown>) => ({
+          id: r.id,
+          businessUsername: r.business_username,
+          businessName: r.business_name,
+          businessAvatarKey: r.business_avatar_key,
+          roleLabel: r.role_label,
+        })),
+        teamMembers: page.show_team_section
+          ? (affiliationsAsBusiness.results || []).map((r: Record<string, unknown>) => ({
+              id: r.id,
+              memberUsername: r.member_username,
+              memberName: r.member_name,
+              memberAvatarKey: r.member_avatar_key,
+              roleLabel: r.role_label,
+              memberJobTitle: r.member_job_title,
+            }))
+          : [],
       },
     });
   } catch {

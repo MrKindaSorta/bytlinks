@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { PageHead } from '../components/PageHead';
-import type { BioPage, Link as LinkType, SocialLink, EmbedBlock, ContentBlock, ContentBlockType, Theme } from '@bytlinks/shared';
+import type { BioPage, Link as LinkType, SocialLink, EmbedBlock, ContentBlock, ContentBlockType, Theme, AffiliationBadgeData, TeamMemberData } from '@bytlinks/shared';
 import { resolveBlockColumnSpan } from '@bytlinks/shared/constants';
 import { PageShell } from '../components/page/PageShell';
 import { PageHero } from '../components/page/PageHero';
@@ -14,6 +14,7 @@ import { PageBadge } from '../components/page/PageBadge';
 import { SectionsRenderer } from '../components/page/SectionsRenderer';
 import { CardsRenderer } from '../components/page/CardsRenderer';
 import { blockRendererRegistry } from '../components/page/blocks/blockRendererRegistry';
+import { TeamSection } from '../components/page/TeamSection';
 import { resolveButtonStyle, resolveLayoutVariant, resolveContentDisplay, resolveDesktopLayoutVariant, resolveDesktopContentDisplay, resolveTwoColumnDesktop, resolveContainerWidth, resolveGridGap } from '../utils/styleDefaults';
 
 interface PageData {
@@ -23,6 +24,8 @@ interface PageData {
   embeds: EmbedBlock[];
   blocks: ContentBlock[];
   verified?: boolean;
+  affiliations?: AffiliationBadgeData[];
+  teamMembers?: TeamMemberData[];
 }
 
 /** Fire a page_view analytics event (fire-and-forget). */
@@ -124,7 +127,7 @@ export default function PublicPage() {
     );
   }
 
-  const { page, links, socialLinks, embeds, blocks } = data;
+  const { page, links, socialLinks, embeds, blocks, affiliations, teamMembers } = data;
   const theme: Theme = page.theme;
 
   const mobileLayout = resolveLayoutVariant(theme);
@@ -145,8 +148,8 @@ export default function PublicPage() {
     ? <PageSocials socialLinks={socialLinks} layoutVariant={desktopLayout} pageId={page.id} />
     : null;
 
-  const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} verified={data.verified} />;
-  const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} verified={data.verified} />;
+  const mobileHero = <PageHero page={page} username={username || ''} layoutVariant={mobileLayout} verified={data.verified} affiliations={affiliations} />;
+  const desktopHero = <PageHero page={page} username={username || ''} layoutVariant={desktopLayout} verified={data.verified} affiliations={affiliations} />;
 
   const mobileContact = <PageContactInfo page={page} layoutVariant={mobileLayout} />;
   const desktopContact = <PageContactInfo page={page} layoutVariant={desktopLayout} />;
@@ -401,6 +404,11 @@ export default function PublicPage() {
         <div className="hidden lg:block">
           {renderDesktop()}
         </div>
+        {teamMembers && teamMembers.length > 0 && (
+          <div className="max-w-lg lg:max-w-5xl mx-auto px-5 pb-10">
+            <TeamSection teamMembers={teamMembers} />
+          </div>
+        )}
       </div>
       {showBranding && <PageBadge />}
     </PageShell>
