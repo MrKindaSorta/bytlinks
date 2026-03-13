@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Crown } from 'lucide-react';
 import { useBlocks } from '../../../hooks/useBlocks';
 import { useAuth } from '../../../hooks/useAuth';
@@ -46,6 +46,20 @@ export function FormEditor({ block }: BlockEditorProps) {
   const limits = FORM_LIMITS[plan as keyof typeof FORM_LIMITS] || FORM_LIMITS.free;
 
   const data = (block.data || { fields: [], submit_label: 'Submit', one_response_per_visitor: false, captcha_enabled: false, email_alert_enabled: false }) as FormData;
+
+  // --- Local state for all editable values (save on blur, not on every keystroke) ---
+  const [fields, setFields] = useState<FormField[]>(data.fields || []);
+  const [title, setTitle] = useState(data.title || '');
+  const [description, setDescription] = useState(data.description || '');
+  const [submitLabel, setSubmitLabel] = useState(data.submit_label || 'Submit');
+  const [successMessage, setSuccessMessage] = useState(data.success_message || '');
+  const [successRedirectUrl, setSuccessRedirectUrl] = useState(data.success_redirect_url || '');
+  const [submissionCap, setSubmissionCap] = useState(data.submission_cap?.toString() || '');
+  const [closeDate, setCloseDate] = useState(data.close_date || '');
+  const [emailRecipient, setEmailRecipient] = useState(data.email_alert_recipient || '');
+  const [webhookUrl, setWebhookUrl] = useState(data.webhook_url || '');
+  const [rules, setRules] = useState<FormConditionalRule[]>(data.conditional_rules || []);
+
   const [expandedField, setExpandedField] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -53,81 +67,133 @@ export function FormEditor({ block }: BlockEditorProps) {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showFieldTypes, setShowFieldTypes] = useState(false);
 
-  const save = useCallback((updates: Partial<FormData>) => {
-    editBlock(block.id, { data: { ...data, ...updates } });
-  }, [data, editBlock, block.id]);
+  // Persist current local state to the global block store
+  function save(overrides: Partial<FormData> = {}) {
+    editBlock(block.id, {
+      data: {
+        ...data,
+        fields,
+        title,
+        description,
+        submit_label: submitLabel,
+        success_message: successMessage,
+        success_redirect_url: successRedirectUrl,
+        submission_cap: submissionCap ? parseInt(submissionCap) : undefined,
+        close_date: closeDate || undefined,
+        email_alert_recipient: emailRecipient || undefined,
+        webhook_url: webhookUrl || undefined,
+        conditional_rules: rules,
+        ...overrides,
+      },
+    });
+  }
 
-  const updateField = useCallback((fieldId: string, updates: Partial<FormField>) => {
-    const fields = data.fields.map((f) => f.id === fieldId ? { ...f, ...updates } : f);
+  // Save with a new fields array (updates local state + persists)
+  function saveFields(newFields: FormField[]) {
+    setFields(newFields);
+    editBlock(block.id, {
+      data: {
+        ...data,
+        fields: newFields,
+        title,
+        description,
+        submit_label: submitLabel,
+        success_message: successMessage,
+        success_redirect_url: successRedirectUrl,
+        submission_cap: submissionCap ? parseInt(submissionCap) : undefined,
+        close_date: closeDate || undefined,
+        email_alert_recipient: emailRecipient || undefined,
+        webhook_url: webhookUrl || undefined,
+        conditional_rules: rules,
+      },
+    });
+  }
+
+  function updateFieldLocal(fieldId: string, updates: Partial<FormField>) {
+    setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, ...updates } : f));
+  }
+
+  function saveField(fieldId: string) {
+    const field = fields.find((f) => f.id === fieldId);
+    if (!field) return;
     save({ fields });
-  }, [data.fields, save]);
+  }
 
-  const addField = useCallback((type: FormFieldType) => {
-    if (data.fields.length >= limits.max_fields) return;
-    const field = defaultField(type, data.fields.length);
-    save({ fields: [...data.fields, field] });
+  function addField(type: FormFieldType) {
+    if (fields.length >= limits.max_fields) return;
+    const field = defaultField(type, fields.length);
+    const newFields = [...fields, field];
+    saveFields(newFields);
     setExpandedField(field.id);
     setShowFieldTypes(false);
-  }, [data.fields, limits.max_fields, save]);
+  }
 
-  const removeField = useCallback((fieldId: string) => {
-    save({ fields: data.fields.filter((f) => f.id !== fieldId).map((f, i) => ({ ...f, order: i })) });
+  function removeField(fieldId: string) {
+    const newFields = fields.filter((f) => f.id !== fieldId).map((f, i) => ({ ...f, order: i }));
+    saveFields(newFields);
     if (expandedField === fieldId) setExpandedField(null);
-  }, [data.fields, expandedField, save]);
+  }
 
-  const moveField = useCallback((fieldId: string, dir: -1 | 1) => {
-    const idx = data.fields.findIndex((f) => f.id === fieldId);
+  function moveField(fieldId: string, dir: -1 | 1) {
+    const idx = fields.findIndex((f) => f.id === fieldId);
     if (idx < 0) return;
     const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= data.fields.length) return;
-    const fields = [...data.fields];
-    [fields[idx], fields[newIdx]] = [fields[newIdx], fields[idx]];
-    save({ fields: fields.map((f, i) => ({ ...f, order: i })) });
-  }, [data.fields, save]);
+    if (newIdx < 0 || newIdx >= fields.length) return;
+    const newFields = [...fields];
+    [newFields[idx], newFields[newIdx]] = [newFields[newIdx], newFields[idx]];
+    saveFields(newFields.map((f, i) => ({ ...f, order: i })));
+  }
 
-  const addOption = useCallback((fieldId: string) => {
-    const field = data.fields.find((f) => f.id === fieldId);
+  function addOption(fieldId: string) {
+    const field = fields.find((f) => f.id === fieldId);
     if (!field) return;
     const options = [...(field.options || []), { id: crypto.randomUUID(), label: '', value: '' }];
-    updateField(fieldId, { options });
-  }, [data.fields, updateField]);
+    const newFields = fields.map((f) => f.id === fieldId ? { ...f, options } : f);
+    saveFields(newFields);
+  }
 
-  const updateOption = useCallback((fieldId: string, optionId: string, label: string) => {
-    const field = data.fields.find((f) => f.id === fieldId);
-    if (!field) return;
-    const options = (field.options || []).map((o) => o.id === optionId ? { ...o, label, value: label } : o);
-    updateField(fieldId, { options });
-  }, [data.fields, updateField]);
+  function updateOptionLocal(fieldId: string, optionId: string, label: string) {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f;
+        const options = (f.options || []).map((o) => o.id === optionId ? { ...o, label, value: label } : o);
+        return { ...f, options };
+      }),
+    );
+  }
 
-  const removeOption = useCallback((fieldId: string, optionId: string) => {
-    const field = data.fields.find((f) => f.id === fieldId);
+  function removeOption(fieldId: string, optionId: string) {
+    const field = fields.find((f) => f.id === fieldId);
     if (!field) return;
-    updateField(fieldId, { options: (field.options || []).filter((o) => o.id !== optionId) });
-  }, [data.fields, updateField]);
+    const newFields = fields.map((f) => f.id === fieldId ? { ...f, options: (f.options || []).filter((o) => o.id !== optionId) } : f);
+    saveFields(newFields);
+  }
 
   // Conditional logic
-  const addRule = useCallback(() => {
-    const rules = [...(data.conditional_rules || []), {
+  function addRule() {
+    const newRules = [...rules, {
       id: crypto.randomUUID(),
-      if_field: data.fields[0]?.id || '',
+      if_field: fields[0]?.id || '',
       operator: 'is' as const,
       value: '',
       then_action: 'show' as const,
-      target_field: data.fields[1]?.id || '',
+      target_field: fields[1]?.id || '',
     }];
-    save({ conditional_rules: rules });
-  }, [data, save]);
+    setRules(newRules);
+    save({ conditional_rules: newRules });
+  }
 
-  const removeRule = useCallback((ruleId: string) => {
-    save({ conditional_rules: (data.conditional_rules || []).filter((r) => r.id !== ruleId) });
-  }, [data, save]);
+  function removeRule(ruleId: string) {
+    const newRules = rules.filter((r) => r.id !== ruleId);
+    setRules(newRules);
+    save({ conditional_rules: newRules });
+  }
 
-  const updateRule = useCallback((ruleId: string, updates: Partial<FormConditionalRule>) => {
-    const rules = (data.conditional_rules || []).map((r) => r.id === ruleId ? { ...r, ...updates } : r);
-    save({ conditional_rules: rules });
-  }, [data, save]);
+  function updateRuleLocal(ruleId: string, updates: Partial<FormConditionalRule>) {
+    setRules((prev) => prev.map((r) => r.id === ruleId ? { ...r, ...updates } : r));
+  }
 
-  const atFieldLimit = data.fields.length >= limits.max_fields;
+  const atFieldLimit = fields.length >= limits.max_fields;
 
   return (
     <div className="space-y-4">
@@ -135,7 +201,7 @@ export function FormEditor({ block }: BlockEditorProps) {
 
       {/* Field list */}
       <div className="space-y-2">
-        {data.fields.map((field, idx) => (
+        {fields.map((field, idx) => (
           <div key={field.id} className="rounded-lg border border-brand-border bg-brand-surface">
             {/* Field header */}
             <div
@@ -149,23 +215,23 @@ export function FormEditor({ block }: BlockEditorProps) {
               <span className="font-body text-[10px] text-brand-text-muted uppercase">{FIELD_TYPE_LABELS[field.type]}</span>
               <div className="flex items-center gap-0.5">
                 <button onClick={(e) => { e.stopPropagation(); moveField(field.id, -1); }} disabled={idx === 0} className="p-0.5 text-brand-text-muted hover:text-brand-text disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
-                <button onClick={(e) => { e.stopPropagation(); moveField(field.id, 1); }} disabled={idx === data.fields.length - 1} className="p-0.5 text-brand-text-muted hover:text-brand-text disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
+                <button onClick={(e) => { e.stopPropagation(); moveField(field.id, 1); }} disabled={idx === fields.length - 1} className="p-0.5 text-brand-text-muted hover:text-brand-text disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
                 <button onClick={(e) => { e.stopPropagation(); removeField(field.id); }} className="p-0.5 text-red-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
               </div>
             </div>
             {/* Expanded field config */}
             {expandedField === field.id && (
               <div className="border-t border-brand-border px-3 py-3 space-y-2">
-                <input type="text" value={field.label} onChange={(e) => updateField(field.id, { label: e.target.value })} placeholder="Field label" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                <input type="text" value={field.placeholder || ''} onChange={(e) => updateField(field.id, { placeholder: e.target.value })} placeholder="Placeholder text" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                <input type="text" value={field.helper_text || ''} onChange={(e) => updateField(field.id, { helper_text: e.target.value })} placeholder="Helper text" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                <input type="text" value={field.label} onChange={(e) => updateFieldLocal(field.id, { label: e.target.value })} onBlur={() => saveField(field.id)} placeholder="Field label" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                <input type="text" value={field.placeholder || ''} onChange={(e) => updateFieldLocal(field.id, { placeholder: e.target.value })} onBlur={() => saveField(field.id)} placeholder="Placeholder text" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                <input type="text" value={field.helper_text || ''} onChange={(e) => updateFieldLocal(field.id, { helper_text: e.target.value })} onBlur={() => saveField(field.id)} placeholder="Helper text" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                 <label className="flex items-center gap-2 font-body text-xs text-brand-text">
-                  <input type="checkbox" checked={field.required} onChange={(e) => updateField(field.id, { required: e.target.checked })} className="rounded" />
+                  <input type="checkbox" checked={field.required} onChange={(e) => { updateFieldLocal(field.id, { required: e.target.checked }); const newFields = fields.map((f) => f.id === field.id ? { ...f, required: e.target.checked } : f); saveFields(newFields); }} className="rounded" />
                   Required
                 </label>
                 {/* Input mask for short-text */}
                 {field.type === 'short-text' && (
-                  <select value={field.input_mask || 'none'} onChange={(e) => updateField(field.id, { input_mask: e.target.value as FormField['input_mask'] })} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent">
+                  <select value={field.input_mask || 'none'} onChange={(e) => { const v = e.target.value as FormField['input_mask']; const newFields = fields.map((f) => f.id === field.id ? { ...f, input_mask: v } : f); saveFields(newFields); }} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent">
                     <option value="none">No mask</option>
                     <option value="email">Email</option>
                     <option value="phone">Phone</option>
@@ -174,7 +240,7 @@ export function FormEditor({ block }: BlockEditorProps) {
                 )}
                 {/* Max chars for long-text */}
                 {field.type === 'long-text' && (
-                  <input type="number" value={field.max_chars || ''} onChange={(e) => updateField(field.id, { max_chars: parseInt(e.target.value) || undefined })} placeholder="Max characters" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                  <input type="number" value={field.max_chars || ''} onChange={(e) => updateFieldLocal(field.id, { max_chars: parseInt(e.target.value) || undefined })} onBlur={() => saveField(field.id)} placeholder="Max characters" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                 )}
                 {/* Options for dropdown/radio */}
                 {(field.type === 'dropdown' || field.type === 'radio') && (
@@ -182,7 +248,7 @@ export function FormEditor({ block }: BlockEditorProps) {
                     <p className="font-body text-[11px] text-brand-text-muted font-medium">Options</p>
                     {(field.options || []).map((opt) => (
                       <div key={opt.id} className="flex items-center gap-1.5">
-                        <input type="text" value={opt.label} onChange={(e) => updateOption(field.id, opt.id, e.target.value)} placeholder="Option label" className="flex-1 px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                        <input type="text" value={opt.label} onChange={(e) => updateOptionLocal(field.id, opt.id, e.target.value)} onBlur={() => saveField(field.id)} placeholder="Option label" className="flex-1 px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                         <button onClick={() => removeOption(field.id, opt.id)} className="p-0.5 text-red-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                       </div>
                     ))}
@@ -192,27 +258,27 @@ export function FormEditor({ block }: BlockEditorProps) {
                 {/* Rating config */}
                 {field.type === 'rating' && (
                   <div className="space-y-2">
-                    <select value={field.rating_mode || 'stars'} onChange={(e) => updateField(field.id, { rating_mode: e.target.value as 'stars' | 'nps' })} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent">
+                    <select value={field.rating_mode || 'stars'} onChange={(e) => { const v = e.target.value as 'stars' | 'nps'; const newFields = fields.map((f) => f.id === field.id ? { ...f, rating_mode: v } : f); saveFields(newFields); }} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent">
                       <option value="stars">Stars (1-5)</option>
                       <option value="nps">NPS (1-10)</option>
                     </select>
-                    <input type="text" value={field.rating_low_label || ''} onChange={(e) => updateField(field.id, { rating_low_label: e.target.value })} placeholder="Low label (e.g. Poor)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                    <input type="text" value={field.rating_high_label || ''} onChange={(e) => updateField(field.id, { rating_high_label: e.target.value })} placeholder="High label (e.g. Excellent)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="text" value={field.rating_low_label || ''} onChange={(e) => updateFieldLocal(field.id, { rating_low_label: e.target.value })} onBlur={() => saveField(field.id)} placeholder="Low label (e.g. Poor)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="text" value={field.rating_high_label || ''} onChange={(e) => updateFieldLocal(field.id, { rating_high_label: e.target.value })} onBlur={() => saveField(field.id)} placeholder="High label (e.g. Excellent)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                   </div>
                 )}
                 {/* Number config */}
                 {field.type === 'number' && (
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" value={field.number_min ?? ''} onChange={(e) => updateField(field.id, { number_min: e.target.value ? Number(e.target.value) : undefined })} placeholder="Min" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                    <input type="number" value={field.number_max ?? ''} onChange={(e) => updateField(field.id, { number_max: e.target.value ? Number(e.target.value) : undefined })} placeholder="Max" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                    <input type="number" value={field.number_step ?? ''} onChange={(e) => updateField(field.id, { number_step: e.target.value ? Number(e.target.value) : undefined })} placeholder="Step" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="number" value={field.number_min ?? ''} onChange={(e) => updateFieldLocal(field.id, { number_min: e.target.value ? Number(e.target.value) : undefined })} onBlur={() => saveField(field.id)} placeholder="Min" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="number" value={field.number_max ?? ''} onChange={(e) => updateFieldLocal(field.id, { number_max: e.target.value ? Number(e.target.value) : undefined })} onBlur={() => saveField(field.id)} placeholder="Max" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="number" value={field.number_step ?? ''} onChange={(e) => updateFieldLocal(field.id, { number_step: e.target.value ? Number(e.target.value) : undefined })} onBlur={() => saveField(field.id)} placeholder="Step" className="px-2 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-xs text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                   </div>
                 )}
                 {/* Hidden field config */}
                 {field.type === 'hidden' && (
                   <div className="space-y-2">
-                    <input type="text" value={field.hidden_url_param || ''} onChange={(e) => updateField(field.id, { hidden_url_param: e.target.value })} placeholder="URL parameter name" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-                    <input type="text" value={field.hidden_default_value || ''} onChange={(e) => updateField(field.id, { hidden_default_value: e.target.value })} placeholder="Default value" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="text" value={field.hidden_url_param || ''} onChange={(e) => updateFieldLocal(field.id, { hidden_url_param: e.target.value })} onBlur={() => saveField(field.id)} placeholder="URL parameter name" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                    <input type="text" value={field.hidden_default_value || ''} onChange={(e) => updateFieldLocal(field.id, { hidden_default_value: e.target.value })} onBlur={() => saveField(field.id)} placeholder="Default value" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                   </div>
                 )}
               </div>
@@ -264,14 +330,14 @@ export function FormEditor({ block }: BlockEditorProps) {
         </button>
         {showSettings && (
           <div className="border-t border-brand-border px-3 py-3 space-y-2">
-            <input type="text" value={data.title || ''} onChange={(e) => save({ title: e.target.value })} placeholder="Form title" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-            <textarea value={data.description || ''} onChange={(e) => save({ description: e.target.value })} placeholder="Form description" rows={2} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent resize-none" />
-            <input type="text" value={data.submit_label || 'Submit'} onChange={(e) => save({ submit_label: e.target.value })} placeholder="Submit button label" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-            <input type="text" value={data.success_message || ''} onChange={(e) => save({ success_message: e.target.value })} placeholder="Success message" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-            <input type="url" value={data.success_redirect_url || ''} onChange={(e) => save({ success_redirect_url: e.target.value })} placeholder="Redirect URL after submit (optional)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => save()} placeholder="Form title" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} onBlur={() => save()} placeholder="Form description" rows={2} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent resize-none" />
+            <input type="text" value={submitLabel} onChange={(e) => setSubmitLabel(e.target.value)} onBlur={() => save()} placeholder="Submit button label" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+            <input type="text" value={successMessage} onChange={(e) => setSuccessMessage(e.target.value)} onBlur={() => save()} placeholder="Success message" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+            <input type="url" value={successRedirectUrl} onChange={(e) => setSuccessRedirectUrl(e.target.value)} onBlur={() => save()} placeholder="Redirect URL after submit (optional)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={data.submission_cap || ''} onChange={(e) => save({ submission_cap: parseInt(e.target.value) || undefined })} placeholder="Submission cap" className="px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
-              <input type="datetime-local" value={data.close_date || ''} onChange={(e) => save({ close_date: e.target.value })} className="px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent" />
+              <input type="number" value={submissionCap} onChange={(e) => setSubmissionCap(e.target.value)} onBlur={() => save()} placeholder="Submission cap" className="px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+              <input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} onBlur={() => save()} className="px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent" />
             </div>
             <label className="flex items-center gap-2 font-body text-xs text-brand-text">
               <input type="checkbox" checked={data.one_response_per_visitor} onChange={(e) => save({ one_response_per_visitor: e.target.checked })} className="rounded" />
@@ -299,7 +365,7 @@ export function FormEditor({ block }: BlockEditorProps) {
             </label>
             {data.email_alert_enabled && (
               <>
-                <input type="email" value={data.email_alert_recipient || ''} onChange={(e) => save({ email_alert_recipient: e.target.value })} placeholder="Recipient email (default: your account email)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+                <input type="email" value={emailRecipient} onChange={(e) => setEmailRecipient(e.target.value)} onBlur={() => save()} placeholder="Recipient email (default: your account email)" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
                 <select value={data.email_alert_mode || 'immediate'} onChange={(e) => save({ email_alert_mode: e.target.value as 'immediate' | 'daily_digest' })} className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text focus:outline-none focus:border-brand-accent">
                   <option value="immediate">Immediate</option>
                   <option value="daily_digest">Daily digest</option>
@@ -314,7 +380,7 @@ export function FormEditor({ block }: BlockEditorProps) {
               </label>
             </div>
             {data.webhook_enabled && plan === 'pro' && (
-              <input type="url" value={data.webhook_url || ''} onChange={(e) => save({ webhook_url: e.target.value })} placeholder="https://your-webhook-url.com" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
+              <input type="url" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} onBlur={() => save()} placeholder="https://your-webhook-url.com" className="w-full px-3 py-1.5 rounded-lg border border-brand-border bg-brand-bg font-body text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-accent" />
             )}
           </div>
         )}
@@ -331,13 +397,13 @@ export function FormEditor({ block }: BlockEditorProps) {
         </button>
         {showConditional && plan === 'pro' && (
           <div className="border-t border-brand-border px-3 py-3 space-y-2">
-            {(data.conditional_rules || []).map((rule) => (
+            {rules.map((rule) => (
               <div key={rule.id} className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-body text-[10px] text-brand-text-muted">If</span>
-                <select value={rule.if_field} onChange={(e) => updateRule(rule.id, { if_field: e.target.value })} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
-                  {data.fields.map((f) => <option key={f.id} value={f.id}>{f.label || f.type}</option>)}
+                <select value={rule.if_field} onChange={(e) => { updateRuleLocal(rule.id, { if_field: e.target.value }); save({ conditional_rules: rules.map((r) => r.id === rule.id ? { ...r, if_field: e.target.value } : r) }); }} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
+                  {fields.map((f) => <option key={f.id} value={f.id}>{f.label || f.type}</option>)}
                 </select>
-                <select value={rule.operator} onChange={(e) => updateRule(rule.id, { operator: e.target.value as FormConditionalRule['operator'] })} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
+                <select value={rule.operator} onChange={(e) => { const v = e.target.value as FormConditionalRule['operator']; updateRuleLocal(rule.id, { operator: v }); save({ conditional_rules: rules.map((r) => r.id === rule.id ? { ...r, operator: v } : r) }); }} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
                   <option value="is">is</option>
                   <option value="is_not">is not</option>
                   <option value="contains">contains</option>
@@ -345,15 +411,15 @@ export function FormEditor({ block }: BlockEditorProps) {
                   <option value="is_not_empty">is not empty</option>
                 </select>
                 {!['is_empty', 'is_not_empty'].includes(rule.operator) && (
-                  <input type="text" value={rule.value} onChange={(e) => updateRule(rule.id, { value: e.target.value })} placeholder="value" className="w-20 px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none" />
+                  <input type="text" value={rule.value} onChange={(e) => updateRuleLocal(rule.id, { value: e.target.value })} onBlur={() => save({ conditional_rules: rules })} placeholder="value" className="w-20 px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none" />
                 )}
                 <span className="font-body text-[10px] text-brand-text-muted">then</span>
-                <select value={rule.then_action} onChange={(e) => updateRule(rule.id, { then_action: e.target.value as 'show' | 'hide' })} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
+                <select value={rule.then_action} onChange={(e) => { const v = e.target.value as 'show' | 'hide'; updateRuleLocal(rule.id, { then_action: v }); save({ conditional_rules: rules.map((r) => r.id === rule.id ? { ...r, then_action: v } : r) }); }} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
                   <option value="show">show</option>
                   <option value="hide">hide</option>
                 </select>
-                <select value={rule.target_field} onChange={(e) => updateRule(rule.id, { target_field: e.target.value })} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
-                  {data.fields.map((f) => <option key={f.id} value={f.id}>{f.label || f.type}</option>)}
+                <select value={rule.target_field} onChange={(e) => { updateRuleLocal(rule.id, { target_field: e.target.value }); save({ conditional_rules: rules.map((r) => r.id === rule.id ? { ...r, target_field: e.target.value } : r) }); }} className="px-2 py-1 rounded border border-brand-border bg-brand-bg font-body text-[11px] text-brand-text focus:outline-none">
+                  {fields.map((f) => <option key={f.id} value={f.id}>{f.label || f.type}</option>)}
                 </select>
                 <button onClick={() => removeRule(rule.id)} className="p-0.5 text-red-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
               </div>
