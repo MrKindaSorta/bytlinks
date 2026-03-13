@@ -33,6 +33,7 @@ interface TeamMember {
 interface InviteData {
   id: string;
   code: string;
+  inviteUrl: string | null;
   maxUses: number | null;
   useCount: number;
   expiresAt: number | null;
@@ -687,9 +688,9 @@ function InviteCodeDisplay({
   onGenerate: () => void;
   generating: boolean;
 }) {
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState<'code' | 'link' | 'url' | null>(null);
 
-  function handleCopy(text: string, type: 'code' | 'link') {
+  function handleCopy(text: string, type: 'code' | 'link' | 'url') {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(type);
       setTimeout(() => setCopied(null), 2000);
@@ -710,6 +711,21 @@ function InviteCodeDisplay({
           {copied === 'code' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-brand-text-muted" />}
         </button>
       </div>
+      {invite.inviteUrl && (
+        <div className="flex items-center gap-2">
+          <p className="font-body text-xs text-brand-text-muted">Or share this link:</p>
+          <code className="px-2 py-1 text-xs font-mono bg-brand-surface-alt rounded text-brand-text-secondary truncate max-w-[280px]">
+            {invite.inviteUrl.length > 40 ? `${invite.inviteUrl.slice(0, 40)}…` : invite.inviteUrl}
+          </code>
+          <button
+            onClick={() => handleCopy(invite.inviteUrl!, 'url')}
+            className="p-1.5 rounded-lg hover:bg-brand-surface-alt transition-colors duration-150 shrink-0"
+            title="Copy invite link"
+          >
+            {copied === 'url' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-brand-text-muted" />}
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <p className="font-body text-xs text-brand-text-muted truncate flex-1">
           {invite.useCount > 0 && `Used ${invite.useCount}${invite.maxUses ? `/${invite.maxUses}` : ''} times · `}

@@ -111,13 +111,14 @@ affiliationsRoutes.post('/invite/create', async (c) => {
 
   const inviteId = crypto.randomUUID();
   await c.env.DB.prepare(
-    `INSERT INTO affiliation_invites (id, business_page_id, code, token_hash, created_by, max_uses, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO affiliation_invites (id, business_page_id, code, token_hash, token, created_by, max_uses, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     inviteId,
     body.business_page_id,
     code,
     tokenHash,
+    rawToken,
     user.id,
     body.max_uses ?? null,
     expiresAt,
@@ -147,7 +148,7 @@ affiliationsRoutes.get('/invites/:businessPageId', async (c) => {
   }
 
   const invites = await c.env.DB.prepare(
-    'SELECT id, code, max_uses, use_count, expires_at, is_active, created_at FROM affiliation_invites WHERE business_page_id = ? ORDER BY created_at DESC'
+    'SELECT id, code, token, max_uses, use_count, expires_at, is_active, created_at FROM affiliation_invites WHERE business_page_id = ? ORDER BY created_at DESC'
   ).bind(businessPageId).all();
 
   return c.json({
@@ -156,6 +157,7 @@ affiliationsRoutes.get('/invites/:businessPageId', async (c) => {
       invites: (invites.results || []).map((inv: Record<string, unknown>) => ({
         id: inv.id,
         code: inv.code,
+        inviteUrl: inv.token ? `https://www.bytlinks.com/join/${inv.token}` : null,
         maxUses: inv.max_uses,
         useCount: inv.use_count,
         expiresAt: inv.expires_at,
