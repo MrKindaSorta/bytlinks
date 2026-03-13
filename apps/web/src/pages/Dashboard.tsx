@@ -178,7 +178,7 @@ export default function Dashboard() {
 
         {/* Main content area — scrolls independently */}
         {activeTab === 'mybytlink' ? (
-          <main className="overflow-y-auto overflow-x-hidden pb-20 lg:pb-0">
+          <main className="overflow-y-auto overflow-x-hidden min-w-0 pb-20 lg:pb-0">
             <div className="px-4 pt-4 lg:px-6 lg:pt-6">
               <OnboardingChecklist onNavigate={(tab) => setActiveTab(tab as DashboardTab)} />
             </div>
