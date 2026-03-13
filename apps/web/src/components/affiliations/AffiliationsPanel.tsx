@@ -369,8 +369,10 @@ export function AffiliationsPanel() {
 
   if (!pageId) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-5 h-5 animate-spin text-brand-text-muted" />
+      <div className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-5 h-5 animate-spin text-brand-text-muted" />
+        </div>
       </div>
     );
   }
@@ -378,10 +380,15 @@ export function AffiliationsPanel() {
   const activeInvite = invites.find((inv) => inv.isActive);
 
   return (
-    <div className="space-y-10">
+    <div className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10">
+      <h1 className="font-display text-2xl font-800 tracking-tight text-brand-text mb-1">Affiliations</h1>
+      <p className="font-body text-sm text-brand-text-secondary mb-8">
+        Manage your team memberships and invite members to your team.
+      </p>
+      <div className="max-w-3xl space-y-8">
       {/* ════════ SECTION A: My Team Memberships ════════ */}
       <section>
-        <h2 className="font-display text-xl font-800 tracking-tight text-brand-text mb-1">
+        <h2 className="font-display text-base font-700 tracking-tight text-brand-text mb-1">
           My Team Memberships
         </h2>
         <p className="font-body text-sm text-brand-text-secondary mb-6">
@@ -465,7 +472,7 @@ export function AffiliationsPanel() {
 
       {/* ════════ SECTION B: Manage My Team ════════ */}
       <section>
-        <h2 className="font-display text-xl font-800 tracking-tight text-brand-text mb-1">
+        <h2 className="font-display text-base font-700 tracking-tight text-brand-text mb-1">
           Manage My Team
         </h2>
         <p className="font-body text-sm text-brand-text-secondary mb-6">
@@ -511,15 +518,17 @@ export function AffiliationsPanel() {
             <p className="font-body text-xs text-brand-text-muted">Displays active team members on your public page.</p>
           </div>
           <button
+            type="button"
+            role="switch"
+            aria-checked={showTeamSection}
             onClick={() => handleToggleTeamSection(!showTeamSection)}
-            className={`relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0 ${
-              showTeamSection ? 'bg-brand-accent' : 'bg-brand-surface-alt border border-brand-border'
+            className={`relative w-8 h-[18px] rounded-full transition-colors duration-200 shrink-0 ${
+              showTeamSection ? 'bg-brand-accent' : 'bg-brand-border'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                showTeamSection ? 'translate-x-4' : 'translate-x-0.5'
-              }`}
+              className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white
+                         transition-transform duration-200 ${showTeamSection ? 'translate-x-[14px]' : ''}`}
             />
           </button>
         </div>
@@ -577,6 +586,7 @@ export function AffiliationsPanel() {
           </>
         )}
       </section>
+      </div>
     </div>
   );
 }
