@@ -3,8 +3,9 @@ import type { Env } from '../index';
 import { decryptCredential } from '../utils/crypto';
 import { syncToMailchimp, syncToConvertKit } from '../utils/emailProviders';
 import { checkRateLimit } from '../utils/rateLimit';
-import type { NewsletterData, FileDownloadData } from '@bytlinks/shared';
+import type { NewsletterData, FileDownloadData, FormData as FormBlockData } from '@bytlinks/shared';
 import { getDownloadCount } from './analytics';
+import { sendEmail, buildFormSubmissionEmail } from '../utils/email';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
@@ -43,8 +44,8 @@ publicRoutes.get('/avatar/*', async (c) => {
 publicRoutes.get('/file/*', async (c) => {
   const key = c.req.path.replace('/api/public/file/', '');
 
-  // Validate key format — must be a blocks/ or avatars/ path
-  if (!key.startsWith('blocks/') && !key.startsWith('avatars/')) {
+  // Validate key format — must be a blocks/, avatars/, or forms/ path
+  if (!key.startsWith('blocks/') && !key.startsWith('avatars/') && !key.startsWith('forms/')) {
     return c.json({ success: false, error: 'Not found' }, 404);
   }
 
@@ -337,6 +338,184 @@ publicRoutes.post('/event/:blockId/rsvp', async (c) => {
     return c.json({ success: true });
   } catch {
     return c.json({ success: false, error: 'Failed to submit RSVP' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/form/:blockId/submit — submit a form response
+ */
+publicRoutes.post('/form/:blockId/submit', async (c) => {
+  const blockId = c.req.param('blockId');
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit: 20 submissions per IP per hour
+  const allowed = await checkRateLimit(c.env.DB, `form-submit:${ip}`, 20, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many requests. Try again later.' }, 429);
+  }
+
+  try {
+    const block = await c.env.DB.prepare(
+      'SELECT id, page_id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'form').first<{ id: string; page_id: string; data: string }>();
+
+    if (!block) {
+      return c.json({ success: false, error: 'Form not found' }, 404);
+    }
+
+    const formData = JSON.parse(block.data) as FormBlockData;
+
+    // Check close date
+    if (formData.close_date && new Date(formData.close_date).getTime() < Date.now()) {
+      return c.json({ success: false, error: 'This form is closed' }, 403);
+    }
+
+    // Check submission cap
+    if (formData.submission_cap) {
+      const count = await c.env.DB.prepare(
+        'SELECT COUNT(*) as cnt FROM form_submissions WHERE block_id = ?'
+      ).bind(blockId).first<{ cnt: number }>();
+      if (count && count.cnt >= formData.submission_cap) {
+        return c.json({ success: false, error: 'Submission cap reached' }, 409);
+      }
+    }
+
+    // Check one-response-per-visitor cookie
+    const cookieName = `form_${blockId}`;
+    const cookies = c.req.header('cookie') || '';
+    if (formData.one_response_per_visitor && cookies.includes(cookieName)) {
+      return c.json({ success: false, error: 'You have already submitted this form' }, 409);
+    }
+
+    // Turnstile CAPTCHA verification
+    const body = await c.req.json<{ data: Record<string, unknown>; turnstile_token?: string }>();
+    if (formData.captcha_enabled && c.env.TURNSTILE_SECRET_KEY) {
+      const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${c.env.TURNSTILE_SECRET_KEY}&response=${body.turnstile_token || ''}`,
+      });
+      const turnstileJson = await turnstileRes.json() as { success: boolean };
+      if (!turnstileJson.success) {
+        return c.json({ success: false, error: 'CAPTCHA verification failed' }, 403);
+      }
+    }
+
+    // Hash IP for privacy
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(ip + blockId));
+    const ipHash = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+
+    const submissionId = crypto.randomUUID();
+    await c.env.DB.prepare(
+      'INSERT INTO form_submissions (id, block_id, data, ip_hash) VALUES (?, ?, ?, ?)'
+    ).bind(submissionId, blockId, JSON.stringify(body.data || {}), ipHash).run();
+
+    // Fire-and-forget: email notification + webhook
+    c.executionCtx.waitUntil(
+      (async () => {
+        // Email alert
+        if (formData.email_alert_enabled && formData.email_alert_mode !== 'daily_digest' && c.env.RESEND_API_KEY) {
+          let recipient = formData.email_alert_recipient;
+          if (!recipient) {
+            // Look up page owner email
+            const owner = await c.env.DB.prepare(
+              'SELECT u.email FROM users u JOIN bio_pages bp ON bp.user_id = u.id WHERE bp.id = ?'
+            ).bind(block.page_id).first<{ email: string }>();
+            recipient = owner?.email;
+          }
+          if (recipient) {
+            const fieldLabels: Record<string, string> = {};
+            for (const f of formData.fields || []) {
+              fieldLabels[f.id] = f.label || f.type;
+            }
+            const email = buildFormSubmissionEmail(formData.title || 'Form', body.data || {}, fieldLabels);
+            await sendEmail(c.env.RESEND_API_KEY, { to: recipient, ...email });
+          }
+        }
+        // Webhook
+        if (formData.webhook_enabled && formData.webhook_url) {
+          const fieldLabels: Record<string, unknown> = {};
+          for (const f of formData.fields || []) {
+            fieldLabels[f.label || f.type] = body.data?.[f.id];
+          }
+          try {
+            await fetch(formData.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'form_submission',
+                block_id: blockId,
+                submission_id: submissionId,
+                submitted_at: Math.floor(Date.now() / 1000),
+                fields: fieldLabels,
+              }),
+              signal: AbortSignal.timeout(10000),
+            });
+          } catch { /* fire-and-forget */ }
+        }
+      })()
+    );
+
+    const res = c.json({ success: true });
+    if (formData.one_response_per_visitor) {
+      res.headers.set('Set-Cookie', `${cookieName}=1; Path=/; Max-Age=2592000; SameSite=Lax`);
+    }
+    return res;
+  } catch {
+    return c.json({ success: false, error: 'Failed to submit form' }, 500);
+  }
+});
+
+/**
+ * POST /api/public/form/:blockId/upload — file upload for form file-upload fields
+ */
+publicRoutes.post('/form/:blockId/upload', async (c) => {
+  const blockId = c.req.param('blockId');
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+
+  // Rate limit: 5 uploads per IP per hour
+  const allowed = await checkRateLimit(c.env.DB, `form-upload:${ip}`, 5, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many uploads. Try again later.' }, 429);
+  }
+
+  try {
+    // Verify the block exists and is a form
+    const block = await c.env.DB.prepare(
+      'SELECT id, page_id, data FROM content_blocks WHERE id = ? AND block_type = ?'
+    ).bind(blockId, 'form').first<{ id: string; page_id: string; data: string }>();
+    if (!block) {
+      return c.json({ success: false, error: 'Form not found' }, 404);
+    }
+
+    // Get the page owner for R2 key path
+    const page = await c.env.DB.prepare(
+      'SELECT user_id FROM bio_pages WHERE id = ?'
+    ).bind(block.page_id).first<{ user_id: string }>();
+    if (!page) return c.json({ success: false, error: 'Not found' }, 404);
+
+    const formDataMultipart = await c.req.formData();
+    const file = formDataMultipart.get('file') as File | null;
+    if (!file) {
+      return c.json({ success: false, error: 'No file provided' }, 400);
+    }
+
+    // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
+      return c.json({ success: false, error: 'File too large (max 10MB)' }, 413);
+    }
+
+    const tempId = crypto.randomUUID();
+    const r2Key = `forms/${page.user_id}/${tempId}/${file.name}`;
+
+    await c.env.STORAGE.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+
+    return c.json({ success: true, data: { url: `/api/public/file/${r2Key}` } });
+  } catch {
+    return c.json({ success: false, error: 'Upload failed' }, 500);
   }
 });
 

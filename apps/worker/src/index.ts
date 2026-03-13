@@ -16,6 +16,7 @@ import { utilRoutes, eventRsvpRoutes } from './routes/utils';
 import { rolodexRoutes } from './routes/rolodex';
 import { seoRoutes } from './routes/seo';
 import { bytadminRoutes } from './routes/bytadmin';
+import { formRoutes } from './routes/forms';
 import { buildMetaTags, buildJsonLd } from './utils/injectMeta';
 import type { ProfileMetaData, SocialLink } from './utils/injectMeta';
 
@@ -34,6 +35,7 @@ export type Env = {
   SPOTIFY_CLIENT_SECRET?: string;
   YOUTUBE_API_KEY?: string;
   CREDENTIALS_ENCRYPTION_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
 };
 
 const ALLOWED_ORIGINS = ['https://www.bytlinks.com', 'https://bytlinks.com'];
@@ -76,6 +78,7 @@ app.route('/api/event-rsvps', eventRsvpRoutes);
 app.route('/api/rolodex', rolodexRoutes);
 app.route('/api/seo', seoRoutes);
 app.route('/api/bytadmin', bytadminRoutes);
+app.route('/api/forms', formRoutes);
 app.route('/api/public', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: Date.now() }));

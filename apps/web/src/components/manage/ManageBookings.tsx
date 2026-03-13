@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Copy, ExternalLink, Check, CalendarDays, Calendar } from 'lucide-react';
-import type { ContentBlock, BookingData, ScheduleData } from '@bytlinks/shared';
+import type { ContentBlock, BookingData, ScheduleData, CalendarData, CalendarMode, CalendarProvider } from '@bytlinks/shared';
+
+function normalizeCalendarData(data: Record<string, unknown>): CalendarData {
+  return {
+    url: (data.url || data.booking_url || data.calendar_url || '') as string,
+    mode: (data.mode || (data.booking_url ? 'book' : 'view')) as CalendarMode,
+    provider: (data.provider || undefined) as CalendarProvider | undefined,
+  };
+}
 
 interface BookingSummary {
   booking_clicks: number;
@@ -58,6 +66,7 @@ export function ManageBookings({ blocks }: ManageBookingsProps) {
   const [summary, setSummary] = useState<BookingSummary | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
 
+  const calendarBlocks = blocks.filter((b) => b.block_type === 'calendar');
   const bookingBlocks = blocks.filter((b) => b.block_type === 'booking');
   const scheduleBlocks = blocks.filter((b) => b.block_type === 'schedule');
 
@@ -72,7 +81,7 @@ export function ManageBookings({ blocks }: ManageBookingsProps) {
       .finally(() => setLoadingSummary(false));
   }, []);
 
-  if (bookingBlocks.length === 0 && scheduleBlocks.length === 0) {
+  if (calendarBlocks.length === 0 && bookingBlocks.length === 0 && scheduleBlocks.length === 0) {
     return (
       <div className="max-w-xl">
         <p className="font-body text-sm text-brand-text-muted">
@@ -96,6 +105,46 @@ export function ManageBookings({ blocks }: ManageBookingsProps) {
             <p className="font-display text-2xl font-bold text-brand-text">{summary.schedule_clicks}</p>
           </div>
         </div>
+      )}
+
+      {/* Calendar blocks (new consolidated type) */}
+      {calendarBlocks.length > 0 && (
+        <section>
+          <h2 className="font-display text-base font-bold text-brand-text mb-3 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Calendar Widgets
+          </h2>
+          <div className="space-y-3">
+            {calendarBlocks.map((block) => {
+              const data = normalizeCalendarData(block.data as Record<string, unknown>);
+              const url = data.url;
+              return (
+                <div
+                  key={block.id}
+                  className="rounded-xl border border-brand-border bg-brand-surface px-4 py-3 flex items-center gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-sm font-medium text-brand-text truncate">
+                      {block.title || 'Calendar Widget'}
+                    </p>
+                    {url && (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-body text-xs text-brand-accent hover:opacity-80 transition-opacity truncate max-w-full"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{url}</span>
+                      </a>
+                    )}
+                  </div>
+                  {url && <CopyButton text={url} />}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Booking blocks */}

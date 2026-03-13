@@ -388,6 +388,12 @@ const BLOCK_EVENT_LABELS: Record<string, string> = {
   microblog_expand: 'Expansions',
   booking_click: 'Clicks',
   tip_click: 'Clicks',
+  calendar_interact: 'Interactions',
+  media_embed_interact: 'Interactions',
+  form_view: 'Views',
+  form_start: 'Starts',
+  form_submit: 'Submissions',
+  product_click: 'Clicks',
 };
 
 /**
@@ -520,7 +526,7 @@ analyticsRoutes.get('/booking-summary', async (c) => {
 
     const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 86400;
 
-    const [bookingClicks, scheduleClicks] = await Promise.all([
+    const [bookingClicks, scheduleClicks, calendarInteracts] = await Promise.all([
       c.env.DB.prepare(
         `SELECT COUNT(*) as count FROM analytics_events
          WHERE page_id = ? AND event_type = 'booking_click' AND timestamp > ?`
@@ -530,12 +536,17 @@ analyticsRoutes.get('/booking-summary', async (c) => {
         `SELECT COUNT(*) as count FROM analytics_events
          WHERE page_id = ? AND event_type = 'schedule_click' AND timestamp > ?`
       ).bind(pageId, thirtyDaysAgo).first<{ count: number }>(),
+
+      c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM analytics_events
+         WHERE page_id = ? AND event_type = 'calendar_interact' AND timestamp > ?`
+      ).bind(pageId, thirtyDaysAgo).first<{ count: number }>(),
     ]);
 
     return c.json({
       success: true,
       data: {
-        booking_clicks: bookingClicks?.count ?? 0,
+        booking_clicks: (bookingClicks?.count ?? 0) + (calendarInteracts?.count ?? 0),
         schedule_clicks: scheduleClicks?.count ?? 0,
       },
     });

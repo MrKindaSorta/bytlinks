@@ -290,6 +290,102 @@ export interface SocialLink {
 
 export type EmbedType = 'youtube' | 'spotify' | 'soundcloud' | 'vimeo' | 'apple-music' | 'tweet' | 'substack' | 'tidal' | 'bandcamp';
 
+// ── Calendar (booking + schedule consolidation) ──
+
+export type CalendarProvider = 'calendly' | 'cal' | 'google' | 'other';
+export type CalendarMode = 'view' | 'book';
+export interface CalendarData {
+  url: string;
+  mode?: CalendarMode;
+  provider?: CalendarProvider;
+}
+
+// ── Media Embed (embed + social-post consolidation) ──
+
+export type MediaEmbedPlatform =
+  | 'youtube' | 'vimeo' | 'spotify' | 'soundcloud' | 'apple-music'
+  | 'tidal' | 'bandcamp' | 'substack'
+  | 'twitter' | 'tiktok' | 'instagram' | 'bluesky';
+
+export interface MediaEmbedData {
+  platform: MediaEmbedPlatform | string;
+  url: string;
+  fallback_text?: string;
+}
+
+// ── Form block ──
+
+export type FormFieldType =
+  | 'short-text' | 'long-text' | 'dropdown' | 'radio' | 'checkbox'
+  | 'date-time' | 'file-upload' | 'rating' | 'review' | 'roster'
+  | 'number' | 'hidden';
+
+export const FREE_FORM_FIELD_TYPES: FormFieldType[] = [
+  'short-text', 'long-text', 'dropdown', 'radio', 'checkbox',
+];
+
+export interface FormFieldOption {
+  id: string;
+  label: string;
+  value: string;
+}
+
+export interface FormConditionalRule {
+  id: string;
+  if_field: string;
+  operator: 'is' | 'is_not' | 'contains' | 'is_empty' | 'is_not_empty';
+  value: string;
+  then_action: 'show' | 'hide';
+  target_field: string;
+}
+
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  placeholder?: string;
+  helper_text?: string;
+  required: boolean;
+  order: number;
+  input_mask?: 'none' | 'email' | 'phone' | 'url';
+  max_chars?: number;
+  options?: FormFieldOption[];
+  date_mode?: 'date' | 'time' | 'datetime';
+  allowed_mime_types?: string[];
+  rating_mode?: 'stars' | 'nps';
+  rating_max?: number;
+  rating_low_label?: string;
+  rating_high_label?: string;
+  roster_sub_fields?: { id: string; label: string; type: 'short-text' | 'dropdown'; options?: FormFieldOption[] }[];
+  roster_min_rows?: number;
+  roster_max_rows?: number;
+  number_min?: number;
+  number_max?: number;
+  number_step?: number;
+  hidden_default_value?: string;
+  hidden_url_param?: string;
+  visibility_rules?: FormConditionalRule[];
+}
+
+export interface FormData {
+  fields: FormField[];
+  title?: string;
+  description?: string;
+  submit_label: string;
+  success_message?: string;
+  success_redirect_url?: string;
+  submission_cap?: number;
+  close_date?: string;
+  one_response_per_visitor: boolean;
+  captcha_enabled: boolean;
+  email_alert_enabled: boolean;
+  email_alert_recipient?: string;
+  email_alert_mode?: 'immediate' | 'daily_digest';
+  webhook_url?: string;
+  webhook_enabled?: boolean;
+  conditional_rules?: FormConditionalRule[];
+}
+
 export interface EmbedBlock {
   id: string;
   page_id: string;
@@ -298,7 +394,7 @@ export interface EmbedBlock {
   order_num: number;
 }
 
-/** Content block system — 19 block types users can add to their page */
+/** Content block system — block types users can add to their page */
 export type ContentBlockType =
   | 'embed'
   | 'microblog'
@@ -318,7 +414,10 @@ export type ContentBlockType =
   | 'stats'
   | 'tip-jar'
   | 'event'
-  | 'product-card';
+  | 'product-card'
+  | 'calendar'
+  | 'media-embed'
+  | 'form';
 
 export interface EmbedBlockData {
   embed_type: EmbedType;
@@ -594,7 +693,10 @@ export type ContentBlockData =
   | StatsData
   | TipJarData
   | EventData
-  | ProductCardData;
+  | ProductCardData
+  | CalendarData
+  | MediaEmbedData
+  | FormData;
 
 export interface ContentBlock {
   id: string;
@@ -633,7 +735,12 @@ export type EventType =
   | 'stats_view'
   | 'quote_view'
   | 'microblog_expand'
-  | 'product_click';
+  | 'product_click'
+  | 'calendar_interact'
+  | 'media_embed_interact'
+  | 'form_view'
+  | 'form_start'
+  | 'form_submit';
 
 export interface AnalyticsEvent {
   id: string;

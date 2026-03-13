@@ -191,7 +191,7 @@ export const MAX_EMBEDS = 5;
 export const BLOCK_LIMITS = {
   free: {
     max_blocks: 5,
-    allowed_types: ['embed', 'rich-link', 'quote', 'faq', 'countdown', 'stats', 'event'] as const,
+    allowed_types: ['media-embed', 'rich-link', 'quote', 'faq', 'countdown', 'stats', 'event', 'form'] as const,
   },
   pro: {
     max_blocks: 25,
@@ -199,15 +199,21 @@ export const BLOCK_LIMITS = {
   },
 } as const;
 
-/** Block type metadata — labels, icons (Lucide), and categories */
-export const BLOCK_TYPE_META = {
-  embed: { label: 'Embed', icon: 'play', category: 'media' },
+/** Form-specific limits */
+export const FORM_LIMITS = {
+  free: { max_fields: 3, max_submissions_per_month: 100 },
+  pro: { max_fields: Infinity, max_submissions_per_month: Infinity },
+} as const;
+
+/** Block type metadata — labels, icons (Lucide), and categories.
+ *  Old types (booking, schedule, embed, social-post) removed from palette but kept in registries. */
+export const BLOCK_TYPE_META: Record<string, { readonly label: string; readonly icon: string; readonly category: string }> = {
+  'media-embed': { label: 'Embed', icon: 'play', category: 'media' },
   microblog: { label: 'Updates', icon: 'message-square', category: 'content' },
   'rich-link': { label: 'Rich Link', icon: 'link', category: 'content' },
-  'social-post': { label: 'Social Post', icon: 'share-2', category: 'media' },
   'image-gallery': { label: 'Image Gallery', icon: 'image', category: 'media' },
   collabs: { label: 'My Collabs', icon: 'users', category: 'social' },
-  schedule: { label: 'My Schedule', icon: 'calendar', category: 'social' },
+  calendar: { label: 'Calendar / Booking', icon: 'calendar', category: 'interactive' },
   poll: { label: 'Poll', icon: 'bar-chart-3', category: 'interactive' },
   testimonials: { label: 'Testimonials', icon: 'quote', category: 'content' },
   newsletter: { label: 'Newsletter Signup', icon: 'mail', category: 'interactive' },
@@ -215,28 +221,38 @@ export const BLOCK_TYPE_META = {
   quote: { label: 'Quote / Text', icon: 'type', category: 'content' },
   'file-download': { label: 'File Download', icon: 'download', category: 'media' },
   countdown: { label: 'Countdown', icon: 'timer', category: 'content' },
-  booking: { label: 'Book a Call', icon: 'calendar-check', category: 'interactive' },
   stats: { label: 'Stats / Numbers', icon: 'trending-up', category: 'content' },
   'tip-jar': { label: 'Payment Options', icon: 'heart', category: 'interactive' },
   event: { label: 'Event / Drop', icon: 'ticket', category: 'content' },
   'product-card': { label: 'Product Card', icon: 'shopping-bag', category: 'interactive' },
+  form: { label: 'Form', icon: 'clipboard-list', category: 'interactive' },
 } as const;
 
 /** Block types that span full width in 2-column desktop grid */
 export const FULL_WIDTH_BLOCKS: readonly string[] = [
-  'image-gallery', 'testimonials', 'social-post', 'newsletter',
+  'image-gallery', 'testimonials', 'newsletter', 'form',
 ] as const;
+
+/** Social media platforms that default to full-width in media-embed */
+const SOCIAL_EMBED_PLATFORMS = ['twitter', 'tiktok', 'instagram', 'bluesky'];
 
 /** Block types that stay single-column in 2-column grid */
 export const SINGLE_COL_BLOCKS: readonly string[] = [
   'quote', 'rich-link', 'countdown', 'stats', 'tip-jar',
   'file-download', 'faq', 'poll', 'microblog', 'event', 'product-card',
-  'embed', 'collabs', 'schedule', 'booking',
+  'collabs', 'calendar',
 ] as const;
 
-/** Resolve effective column span for a block (per-block override → block type default). */
-export function resolveBlockColumnSpan(block: { block_type: string; column_span?: 'full' | 'half' | null }): 'full' | 'half' {
+/** Resolve effective column span for a block (per-block override → block type default).
+ *  media-embed blocks compute width dynamically based on platform. */
+export function resolveBlockColumnSpan(block: { block_type: string; column_span?: 'full' | 'half' | null; data?: unknown }): 'full' | 'half' {
   if (block.column_span) return block.column_span;
+  if (block.block_type === 'media-embed' || block.block_type === 'social-post') {
+    const d = block.data as Record<string, unknown> | undefined;
+    const platform = (d?.platform || d?.embed_type || '') as string;
+    if (SOCIAL_EMBED_PLATFORMS.includes(platform)) return 'full';
+    return 'half';
+  }
   return FULL_WIDTH_BLOCKS.includes(block.block_type) ? 'full' : 'half';
 }
 

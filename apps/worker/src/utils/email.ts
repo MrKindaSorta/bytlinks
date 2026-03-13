@@ -81,6 +81,59 @@ export function buildWelcomeEmail(username: string): { subject: string; html: st
   };
 }
 
+/** Build form submission notification email. */
+export function buildFormSubmissionEmail(
+  formTitle: string,
+  data: Record<string, unknown>,
+  fieldLabels: Record<string, string>,
+): { subject: string; html: string; text: string } {
+  const fieldRows = Object.entries(data)
+    .map(([fieldId, value]) => {
+      const label = fieldLabels[fieldId] || fieldId;
+      const displayValue = value === null || value === undefined ? '—' : String(value);
+      return { label, value: displayValue };
+    })
+    .filter((r) => r.value.trim());
+
+  const htmlRows = fieldRows
+    .map((r) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280;font-weight:600;white-space:nowrap;vertical-align:top">${escapeHtml(r.label)}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111">${escapeHtml(r.value)}</td></tr>`)
+    .join('');
+
+  const textRows = fieldRows.map((r) => `${r.label}: ${r.value}`).join('\n');
+
+  return {
+    subject: `New submission: ${formTitle}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+    <div style="padding:24px 28px 0">
+      <h1 style="font-size:18px;font-weight:800;color:#111;margin:0 0 4px">New Form Submission</h1>
+      <p style="font-size:13px;color:#6b7280;margin:0 0 16px">${escapeHtml(formTitle)}</p>
+    </div>
+    <div style="padding:0 28px 24px">
+      <table style="width:100%;border-collapse:collapse">
+        ${htmlRows}
+      </table>
+    </div>
+    <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb">
+      <p style="font-size:11px;color:#9ca3af;margin:0;text-align:center">
+        BytLinks — Your professional presence, in one link.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+    text: `New submission for ${formTitle}\n\n${textRows}`,
+  };
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /** Build the password reset email. */
 export function buildPasswordResetEmail(resetUrl: string): { subject: string; html: string; text: string } {
   return {

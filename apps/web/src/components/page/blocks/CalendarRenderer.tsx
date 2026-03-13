@@ -1,22 +1,28 @@
 import { useRef, useState, useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { BlockRendererProps } from './blockRendererRegistry';
-import type { BookingData } from '@bytlinks/shared';
+import type { CalendarData, CalendarMode, CalendarProvider } from '@bytlinks/shared';
 import { trackEvent } from '../../../utils/trackEvent';
 
-function detectProvider(url: string): string {
+function normalizeCalendarData(data: Record<string, unknown>): CalendarData {
+  return {
+    url: (data.url || data.booking_url || data.calendar_url || '') as string,
+    mode: (data.mode || (data.booking_url ? 'book' : 'view')) as CalendarMode,
+    provider: (data.provider || undefined) as CalendarProvider | undefined,
+  };
+}
+
+function detectProvider(url: string): CalendarProvider {
   try {
     const hostname = new URL(url).hostname;
     if (hostname.includes('calendly.com')) return 'calendly';
     if (hostname.includes('cal.com')) return 'cal';
+    if (hostname.includes('calendar.google.com')) return 'google';
   } catch { /* ignore */ }
   return 'other';
 }
 
-function getEmbedSrc(url: string, provider: string): string {
-  if (provider === 'calendly') {
-    return url;
-  }
+function getEmbedSrc(url: string, provider: CalendarProvider): string {
   if (provider === 'cal') {
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}embed=true`;
@@ -24,18 +30,20 @@ function getEmbedSrc(url: string, provider: string): string {
   return url;
 }
 
-export function BookingRenderer({ block, pageId }: BlockRendererProps) {
-  const data = block.data as BookingData;
+export function CalendarRenderer({ block, pageId }: BlockRendererProps) {
+  const rawData = block.data as Record<string, unknown>;
+  const data = normalizeCalendarData(rawData);
   const trackedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
 
-  if (!data.booking_url) return null;
+  if (!data.url) return null;
 
-  const provider = data.provider || detectProvider(data.booking_url);
-  const embedSrc = getEmbedSrc(data.booking_url, provider);
+  const provider = data.provider || detectProvider(data.url);
+  const mode = data.mode || (provider === 'google' ? 'view' : 'book');
+  const embedSrc = getEmbedSrc(data.url, provider);
+  const height = mode === 'book' ? 500 : 400;
 
-  // Timeout fallback for iframe load detection
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!loaded) setErrored(true);
@@ -46,7 +54,11 @@ export function BookingRenderer({ block, pageId }: BlockRendererProps) {
   function handleInteract() {
     if (trackedRef.current || !pageId) return;
     trackedRef.current = true;
-    trackEvent(pageId, 'booking_click', { blockId: block.id });
+    // Use legacy event type for old block types, new type for calendar
+    const eventType = block.block_type === 'booking' ? 'booking_click'
+      : block.block_type === 'schedule' ? 'schedule_click'
+      : 'calendar_interact';
+    trackEvent(pageId, eventType, { blockId: block.id });
   }
 
   return (
@@ -67,8 +79,7 @@ export function BookingRenderer({ block, pageId }: BlockRendererProps) {
           {block.title}
         </h3>
       )}
-      <div className="relative" style={{ height: 500 }}>
-        {/* Loading spinner */}
+      <div className="relative" style={{ height }}>
         {!loaded && !errored && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div
@@ -80,26 +91,25 @@ export function BookingRenderer({ block, pageId }: BlockRendererProps) {
             />
           </div>
         )}
-        {/* Error state */}
         {errored && !loaded && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
             <p className="text-sm font-medium" style={{ color: 'var(--page-text)', opacity: 0.6 }}>
-              Unable to load booking widget
+              Unable to load calendar widget
             </p>
             <a
-              href={data.booking_url}
+              href={data.url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-medium"
               style={{ color: 'var(--page-accent)' }}
             >
-              Open booking page <ExternalLink className="w-3 h-3" />
+              Open calendar page <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         )}
         <iframe
           src={embedSrc}
-          title="Book a call"
+          title={mode === 'book' ? 'Book a call' : 'Calendar'}
           className="w-full h-full border-0"
           style={{ opacity: loaded ? 1 : 0, transition: 'opacity 300ms ease' }}
           loading="lazy"
