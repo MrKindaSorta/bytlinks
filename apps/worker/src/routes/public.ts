@@ -520,6 +520,83 @@ publicRoutes.post('/form/:blockId/upload', async (c) => {
 });
 
 /**
+ * GET /api/public/invite/:token — resolve an invite token to business info (no auth required).
+ * Used by the /join/:token landing page to show who's inviting before the user logs in.
+ */
+publicRoutes.get('/invite/:token', async (c) => {
+  const token = c.req.param('token');
+  if (!token) {
+    return c.json({ success: false, error: 'Token is required' }, 400);
+  }
+
+  // Rate limit: 20 lookups per IP per hour to prevent enumeration
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
+  const allowed = await checkRateLimit(c.env.DB, `invite-resolve:${ip}`, 20, 3600);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Too many requests. Try again later.' }, 429);
+  }
+
+  try {
+    // Hash the token to look it up
+    const data = new TextEncoder().encode(token);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    const tokenHash = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    const invite = await c.env.DB.prepare(
+      'SELECT business_page_id, is_active, expires_at, max_uses, use_count FROM affiliation_invites WHERE token_hash = ?'
+    ).bind(tokenHash).first<{
+      business_page_id: string;
+      is_active: number;
+      expires_at: number | null;
+      max_uses: number | null;
+      use_count: number;
+    }>();
+
+    if (!invite) {
+      return c.json({ success: false, error: 'Invalid invite link' }, 404);
+    }
+
+    if (!invite.is_active) {
+      return c.json({ success: false, error: 'This invite has been deactivated' }, 410);
+    }
+    const now = Math.floor(Date.now() / 1000);
+    if (invite.expires_at && invite.expires_at < now) {
+      return c.json({ success: false, error: 'This invite has expired' }, 410);
+    }
+    if (invite.max_uses && invite.use_count >= invite.max_uses) {
+      return c.json({ success: false, error: 'This invite has reached its usage limit' }, 410);
+    }
+
+    const page = await c.env.DB.prepare(
+      'SELECT display_name, username, avatar_r2_key, bio, job_title FROM bio_pages WHERE id = ?'
+    ).bind(invite.business_page_id).first<{
+      display_name: string | null;
+      username: string;
+      avatar_r2_key: string | null;
+      bio: string | null;
+      job_title: string | null;
+    }>();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Business page not found' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        business_name: page.display_name || page.username,
+        business_username: page.username,
+        business_avatar_key: page.avatar_r2_key,
+        business_bio: page.bio,
+        business_job_title: page.job_title,
+      },
+    });
+  } catch {
+    return c.json({ success: false, error: 'Failed to resolve invite' }, 500);
+  }
+});
+
+/**
  * GET /api/public/batch-profiles?usernames=alice,bob,carol — fetch multiple profiles in one query
  */
 publicRoutes.get('/batch-profiles', async (c) => {
