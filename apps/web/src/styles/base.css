@@ -108,6 +108,7 @@ html {
   text-rendering: optimizeLegibility;
   scrollbar-gutter: stable;
   overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -117,6 +118,7 @@ body {
   line-height: 1.65;
   font-weight: 400;
   overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -81,20 +81,17 @@ export function EditableWrapper({
   return (
     <div
       ref={(el) => { setNodeRef(el); (wrapperRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
-      style={style}
+      style={{
+        ...style,
+        outline: active ? '1.5px dashed var(--page-accent, #0d9488)' : '1.5px dashed transparent',
+        outlineOffset: '4px',
+        transition: [transition, 'outline-color 200ms'].filter(Boolean).join(', '),
+      }}
       className="relative group/editable"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleTap}
     >
-      {/* Outline highlight */}
-      <div
-        className="absolute -inset-1.5 rounded-xl pointer-events-none transition-all duration-200"
-        style={{
-          border: active ? '1.5px dashed var(--page-accent, #0d9488)' : '1.5px dashed transparent',
-          opacity: active ? 0.5 : 0,
-        }}
-      />
 
       {/* Floating toolbar — desktop only (mobile uses MobileActionBar) */}
       <div

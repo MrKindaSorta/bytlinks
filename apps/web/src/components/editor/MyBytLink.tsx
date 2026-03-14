@@ -587,7 +587,7 @@ export function MyBytLink() {
         {/* Edit overlay on hover */}
         <button
           onClick={openSocialEditor}
-          className="absolute -top-2 -right-1 z-10 flex items-center gap-1 px-2 py-1 rounded-md
+          className="absolute -top-2 right-1 z-10 flex items-center gap-1 px-2 py-1 rounded-md
                      shadow-md transition-all duration-200
                      opacity-0 group-hover/socials:opacity-100"
           style={{
@@ -1506,7 +1506,12 @@ function SortableLinkWrapper({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        outline: active ? '1.5px dashed var(--page-accent, #0d9488)' : '1.5px dashed transparent',
+        outlineOffset: '2px',
+        transition: [transition, 'outline-color 200ms'].filter(Boolean).join(', '),
+      }}
       className="relative group/link"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -1566,14 +1571,6 @@ function SortableLinkWrapper({
         </button>
       </div>
 
-      {/* Selection/hover border */}
-      <div
-        className="absolute -inset-1 rounded-lg pointer-events-none transition-all duration-200"
-        style={{
-          border: `1.5px dashed var(--page-accent, #0d9488)`,
-          opacity: active ? 0.5 : 0,
-        }}
-      />
 
       {/* The actual link button */}
       <div className={`relative ${btnClasses}`} style={btnStyle}>

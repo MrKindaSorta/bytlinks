@@ -144,7 +144,7 @@ export function InlineTextEdit({
       {children}
       {/* Pencil icon on hover */}
       <span
-        className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/inline:opacity-70
+        className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/inline:opacity-70
                    transition-opacity duration-150 pointer-events-none"
         style={{ color: 'var(--page-accent, #0d9488)' }}
       >
