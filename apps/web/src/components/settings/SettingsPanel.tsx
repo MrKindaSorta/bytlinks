@@ -7,6 +7,7 @@ import { QrCodeSection } from './QrCodeSection';
 import { VerificationSection } from './VerificationSection';
 import { ExportSection } from './ExportSection';
 import { SeoSection } from './SeoSection';
+import { InstallAppSection } from './InstallAppSection';
 
 interface BillingStatus {
   plan: string;
@@ -140,6 +141,9 @@ export function SettingsPanel() {
 
       {/* SEO */}
       <SeoSection />
+
+      {/* Install as App */}
+      <InstallAppSection />
 
       {/* Plan / Upgrade */}
       {loading ? (
