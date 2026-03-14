@@ -45,7 +45,7 @@ export function PageShell({ theme, children }: PageShellProps) {
     <div
       ref={shellRef}
       data-theme={theme.base}
-      className={`min-h-screen flex flex-col min-w-0 ${animClass} relative`}
+      className={`min-h-screen flex flex-col min-w-0 overflow-x-hidden ${animClass} relative`}
       style={{
         background: 'var(--page-bg)',
         color: 'var(--page-text)',
@@ -53,7 +53,7 @@ export function PageShell({ theme, children }: PageShellProps) {
       }}
     >
       <AnimatedBackground effect={theme.backgroundEffect ?? 'none'} intensity={theme.backgroundIntensity ?? 50} nightSkyConfig={theme.nightSkyConfig} rainConfig={theme.rainConfig} firefliesConfig={theme.firefliesConfig} />
-      <div className="relative flex-1 flex flex-col min-w-0" style={{ zIndex: 1 }}>
+      <div className="relative flex-1 flex flex-col min-w-0 overflow-x-hidden" style={{ zIndex: 1 }}>
         {children}
       </div>
     </div>
