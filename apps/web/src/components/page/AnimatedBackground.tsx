@@ -961,6 +961,7 @@ function Waves({ t }: { t: number }) {
       {waves.map((w) => (
         <div key={w.id} style={{
           position: 'absolute', bottom: w.bottom, left: 0, width: '100%',
+          overflow: 'hidden',
           '--sway': `${w.swayAmount}px`,
           animation: `bg-wave-sway ${w.swayDuration}s ${w.delay}s ease-in-out infinite`,
         } as React.CSSProperties}>

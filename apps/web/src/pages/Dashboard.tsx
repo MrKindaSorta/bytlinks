@@ -178,7 +178,8 @@ export default function Dashboard() {
 
         {/* Main content area — scrolls independently */}
         {activeTab === 'mybytlink' ? (
-          <main className="overflow-y-auto overflow-x-hidden min-w-0 pb-20 lg:pb-0">
+          <main className="overflow-y-auto min-w-0 pb-20 lg:pb-0"
+                style={{ overflowX: 'clip', contain: 'inline-size' }}>
             <div className="px-4 pt-4 lg:px-6 lg:pt-6">
               <OnboardingChecklist onNavigate={(tab) => setActiveTab(tab as DashboardTab)} />
             </div>
@@ -215,29 +216,30 @@ export default function Dashboard() {
           </main>
         )}
 
-        {/* Bottom nav — mobile only */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-brand-surface border-t border-brand-border
-                        flex justify-around px-2 py-2 z-50">
-          {tabs.map((tab) => {
-            const Icon = TAB_ICONS[tab.key];
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex flex-col items-center gap-0.5 font-body text-xs font-medium px-3 py-1.5 rounded-lg
-                  transition-colors duration-fast
-                  ${activeTab === tab.key
-                    ? 'text-brand-accent'
-                    : 'text-brand-text-muted'
-                  }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.mobileLabel || tab.label}
-              </button>
-            );
-          })}
-        </nav>
       </div>
+
+      {/* Bottom nav — mobile only (outside grid to avoid mobile grid interaction) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-brand-surface border-t border-brand-border
+                      flex justify-around px-2 py-2 z-50">
+        {tabs.map((tab) => {
+          const Icon = TAB_ICONS[tab.key];
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex flex-col items-center gap-0.5 font-body text-xs font-medium px-3 py-1.5 rounded-lg
+                transition-colors duration-fast
+                ${activeTab === tab.key
+                  ? 'text-brand-accent'
+                  : 'text-brand-text-muted'
+                }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.mobileLabel || tab.label}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
