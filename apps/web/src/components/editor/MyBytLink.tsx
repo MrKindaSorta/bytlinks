@@ -1266,7 +1266,7 @@ export function MyBytLink() {
           </div>
         ) : (
           /* Single-column edit mode (mobile / 2-col off) */
-          <div className={`${isDesktop ? resolveContainerWidth(theme) : 'max-w-lg'} mx-auto px-5 py-10 pb-24 overflow-x-hidden`} data-preview>
+          <div className={`${isDesktop ? resolveContainerWidth(theme) : 'max-w-lg'} w-full min-w-0 mx-auto px-5 py-10 pb-24 [overflow-x:clip]`} data-preview>
             {renderEditableHero()}
             {renderFlatContent()}
           </div>
