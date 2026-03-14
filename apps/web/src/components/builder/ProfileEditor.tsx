@@ -165,7 +165,7 @@ export function ProfileEditor() {
               type="text"
               value={displayName}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+              className="w-full font-body text-base md:text-sm px-3 py-2.5 rounded-lg border border-brand-border
                          bg-brand-surface text-brand-text placeholder:text-brand-text-muted
                          transition-colors duration-fast
                          focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
@@ -356,7 +356,7 @@ export function ProfileEditor() {
                   setEmailLabel(e.target.value);
                   debouncedSave('email_label', e.target.value);
                 }}
-                className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+                className="w-full font-body text-base md:text-sm px-3 py-2 rounded-lg border border-brand-border
                            bg-brand-surface text-brand-text placeholder:text-brand-text-muted
                            transition-colors duration-fast
                            focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
@@ -399,7 +399,7 @@ export function ProfileEditor() {
                   setSecondaryEmailLabel(e.target.value);
                   debouncedSave('secondary_email_label', e.target.value);
                 }}
-                className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+                className="w-full font-body text-base md:text-sm px-3 py-2 rounded-lg border border-brand-border
                            bg-brand-surface text-brand-text placeholder:text-brand-text-muted
                            transition-colors duration-fast
                            focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"

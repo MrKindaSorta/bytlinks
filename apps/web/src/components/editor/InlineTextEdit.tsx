@@ -73,7 +73,6 @@ export function InlineTextEdit({
       background: 'rgba(0,0,0,0.06)',
       color: 'inherit',
       fontFamily: 'inherit',
-      fontSize: 'inherit',
       fontWeight: 'inherit',
       letterSpacing: 'inherit',
       lineHeight: 'inherit',
@@ -96,6 +95,7 @@ export function InlineTextEdit({
             maxLength={maxLength}
             placeholder={placeholder}
             rows={3}
+            className="text-base md:[font-size:inherit]"
             style={{ ...inputStyle, resize: 'vertical' }}
           />
         ) : (
@@ -107,6 +107,7 @@ export function InlineTextEdit({
             onKeyDown={handleKeyDown}
             maxLength={maxLength}
             placeholder={placeholder}
+            className="text-base md:[font-size:inherit]"
             style={inputStyle}
           />
         )}

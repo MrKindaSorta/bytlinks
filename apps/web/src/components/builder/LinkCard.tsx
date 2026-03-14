@@ -183,7 +183,7 @@ export function LinkCard({ link }: LinkCardProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+            className="w-full font-body text-base md:text-sm px-3 py-2 rounded-lg border border-brand-border
                        bg-brand-bg text-brand-text
                        focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
             autoFocus
@@ -192,7 +192,7 @@ export function LinkCard({ link }: LinkCardProps) {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+            className="w-full font-body text-base md:text-sm px-3 py-2 rounded-lg border border-brand-border
                        bg-brand-bg text-brand-text
                        focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
           />

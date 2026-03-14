@@ -152,7 +152,7 @@ function SectionHeader({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-            className="flex-1 font-body text-sm font-semibold bg-transparent border-b border-brand-accent
+            className="flex-1 font-body text-base md:text-sm font-semibold bg-transparent border-b border-brand-accent
                        text-brand-text outline-none px-0 py-0.5"
             autoFocus
           />

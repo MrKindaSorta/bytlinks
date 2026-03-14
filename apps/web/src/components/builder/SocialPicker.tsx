@@ -593,7 +593,7 @@ export function SocialPicker() {
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             required
-            className="w-full font-body text-sm px-3 py-2 rounded-lg border border-brand-border
+            className="w-full font-body text-base md:text-sm px-3 py-2 rounded-lg border border-brand-border
                        bg-brand-bg text-brand-text placeholder:text-brand-text-muted
                        focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
             placeholder="https://..."

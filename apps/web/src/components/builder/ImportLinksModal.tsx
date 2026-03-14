@@ -153,7 +153,7 @@ export function ImportLinksModal({ onClose, onImported }: ImportLinksModalProps)
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://linktr.ee/username"
-                    className="flex-1 font-body text-sm px-3 py-2.5 rounded-lg border border-brand-border
+                    className="flex-1 font-body text-base md:text-sm px-3 py-2.5 rounded-lg border border-brand-border
                                bg-brand-surface text-brand-text placeholder:text-brand-text-muted
                                focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
                     onKeyDown={(e) => e.key === 'Enter' && handleParseUrl()}
