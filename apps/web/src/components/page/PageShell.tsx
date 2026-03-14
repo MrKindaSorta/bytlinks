@@ -45,7 +45,7 @@ export function PageShell({ theme, children }: PageShellProps) {
     <div
       ref={shellRef}
       data-theme={theme.base}
-      className={`min-h-screen flex flex-col min-w-0 overflow-x-hidden ${animClass} relative`}
+      className={`min-h-screen flex flex-col min-w-0 max-w-full overflow-x-hidden ${animClass} relative`}
       style={{
         background: 'var(--page-bg)',
         color: 'var(--page-text)',
