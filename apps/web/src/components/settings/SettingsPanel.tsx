@@ -19,6 +19,11 @@ export function SettingsPanel() {
   const { user, logout } = useAuth();
   const { page } = usePage();
   const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate('/');
+  }
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
@@ -112,6 +117,15 @@ export function SettingsPanel() {
               {billing?.plan_name ?? 'Free'}
             </span>
           </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-brand-border">
+          <button
+            onClick={handleLogout}
+            className="font-body text-sm font-medium text-brand-text-muted
+                       hover:text-brand-text transition-colors duration-fast"
+          >
+            Log out
+          </button>
         </div>
       </section>
 
