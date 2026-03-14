@@ -90,7 +90,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="h-screen bg-brand-bg overflow-hidden">
+    <div className="min-h-screen lg:h-screen bg-brand-bg lg:overflow-hidden">
       <PageHead title="Dashboard" noIndex />
 
       {/* Pro upgrade success banner */}
@@ -116,7 +116,7 @@ export default function Dashboard() {
           onSkip={handleTemplateSkip}
         />
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] min-h-screen lg:h-full">
         {/* Sidebar — fixed, never scrolls */}
         <aside className="hidden lg:flex flex-col border-r border-brand-border bg-brand-surface px-4 py-6 h-full overflow-y-auto">
           <a href="/" className="block mb-8 px-2">
@@ -178,8 +178,7 @@ export default function Dashboard() {
 
         {/* Main content area — scrolls independently */}
         {activeTab === 'mybytlink' ? (
-          <main className="overflow-y-auto min-w-0 pb-20 lg:pb-0"
-                style={{ overflowX: 'clip', contain: 'inline-size' }}>
+          <main className="lg:overflow-y-auto min-w-0 pb-20 lg:pb-0">
             <div className="px-4 pt-4 lg:px-6 lg:pt-6">
               <OnboardingChecklist onNavigate={(tab) => setActiveTab(tab as DashboardTab)} />
             </div>
@@ -190,15 +189,15 @@ export default function Dashboard() {
             <BusinessCardHub />
           </main>
         ) : activeTab === 'manage' ? (
-          <main className="overflow-y-auto pb-20 lg:pb-0">
+          <main className="lg:overflow-y-auto pb-20 lg:pb-0">
             <ManageSection />
           </main>
         ) : activeTab === 'affiliations' ? (
-          <main className="overflow-y-auto pb-20 lg:pb-0">
+          <main className="lg:overflow-y-auto pb-20 lg:pb-0">
             <AffiliationsPanel />
           </main>
         ) : (
-          <main className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10 overflow-y-auto">
+          <main className="px-6 py-8 lg:px-10 lg:py-10 pb-20 lg:pb-10 lg:overflow-y-auto">
             <div className={activeTab === 'analytics' ? '' : 'max-w-3xl'}>
               <h1 className="font-display text-2xl font-800 tracking-tight text-brand-text mb-1">
                 {activeTab === 'analytics' && 'Analytics'}
