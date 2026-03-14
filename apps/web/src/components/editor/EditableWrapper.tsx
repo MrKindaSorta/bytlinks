@@ -84,10 +84,10 @@ export function EditableWrapper({
       style={{
         ...style,
         outline: active ? '1.5px dashed var(--page-accent, #0d9488)' : '1.5px dashed transparent',
-        outlineOffset: '4px',
+        outlineOffset: '0px',
         transition: [transition, 'outline-color 200ms'].filter(Boolean).join(', '),
       }}
-      className="relative group/editable"
+      className="relative group/editable overflow-hidden lg:overflow-visible"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleTap}

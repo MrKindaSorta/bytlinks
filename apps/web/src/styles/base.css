@@ -107,6 +107,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scrollbar-gutter: stable;
+  overflow-x: hidden;
   overflow-x: clip;
   overscroll-behavior-x: none;
 }
@@ -117,6 +118,7 @@ body {
   background-color: var(--brand-bg);
   line-height: 1.65;
   font-weight: 400;
+  overflow-x: hidden;
   overflow-x: clip;
   overscroll-behavior-x: none;
 }

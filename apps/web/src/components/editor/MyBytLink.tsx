@@ -1509,10 +1509,10 @@ function SortableLinkWrapper({
       style={{
         ...style,
         outline: active ? '1.5px dashed var(--page-accent, #0d9488)' : '1.5px dashed transparent',
-        outlineOffset: '2px',
+        outlineOffset: '0px',
         transition: [transition, 'outline-color 200ms'].filter(Boolean).join(', '),
       }}
-      className="relative group/link"
+      className="relative group/link overflow-hidden lg:overflow-visible"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
