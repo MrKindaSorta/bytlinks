@@ -253,8 +253,9 @@ app.get('/:username', async (c, next) => {
     const metaTags = buildMetaTags(profile, socialLinks, baseUrl);
     const jsonLd = buildJsonLd(profile, socialLinks, baseUrl);
 
-    // Replace the static <title> with populated meta tags + JSON-LD
-    html = html.replace(/<title>[^<]*<\/title>/, metaTags + '\n    ' + jsonLd);
+    // Replace the entire static SEO block with profile-specific meta tags + JSON-LD
+    const seoBlock = metaTags + '\n    ' + jsonLd + '\n    <meta name="robots" content="index, follow" />';
+    html = html.replace(/<!-- SEO:START -->[\s\S]*?<!-- SEO:END -->/, seoBlock);
 
     return new Response(html, {
       headers: {
